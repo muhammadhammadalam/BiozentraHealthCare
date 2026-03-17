@@ -14,19 +14,20 @@ export interface Product {
 export interface Order {
   id: string;
   customer: string;
-  date: string;
-  items: number;
+  products: string;
   total: number;
   status: string;
+  date: string;
 }
 
 // Customer types
 export interface Customer {
   id: number;
   name: string;
+  contact: string;
   email: string;
   phone: string;
-  address: string;
+  location: string;
   orders: number;
   totalSpent: number;
 }
@@ -66,43 +67,7 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Initial data
-const initialProducts: Product[] = [
-  { id: 1, name: "Paracetamol 500mg", category: "Tablets", stock: 500, price: 45, status: "In Stock" },
-  { id: 2, name: "Amoxicillin 250mg", category: "Capsules", stock: 200, price: 120, status: "In Stock" },
-  { id: 3, name: "Omeprazole 20mg", category: "Capsules", stock: 150, price: 85, status: "In Stock" },
-  { id: 4, name: "Cetirizine 10mg", category: "Tablets", stock: 300, price: 35, status: "In Stock" },
-  { id: 5, name: "Ibuprofen 400mg", category: "Tablets", stock: 15, price: 55, status: "Low Stock" },
-  { id: 6, name: "Metformin 500mg", category: "Tablets", stock: 0, price: 65, status: "Out of Stock" },
-  { id: 7, name: "Azithromycin 500mg", category: "Tablets", stock: 100, price: 180, status: "In Stock" },
-  { id: 8, name: "Pantoprazole 40mg", category: "Tablets", stock: 250, price: 95, status: "In Stock" },
-];
-
-const initialOrders: Order[] = [
-  { id: "ORD-2024-001", customer: "City Medical Store", date: "2024-01-15", items: 5, total: 12500, status: "Delivered" },
-  { id: "ORD-2024-002", customer: "HealthCare Pharmacy", date: "2024-01-14", items: 3, total: 8500, status: "Processing" },
-  { id: "ORD-2024-003", customer: "MedPlus Distributors", date: "2024-01-13", items: 8, total: 24000, status: "Pending" },
-  { id: "ORD-2024-004", customer: "Apollo Pharmacy", date: "2024-01-12", items: 4, total: 15000, status: "Delivered" },
-  { id: "ORD-2024-005", customer: "Wellness Mart", date: "2024-01-11", items: 6, total: 18500, status: "Cancelled" },
-];
-
-const initialCustomers: Customer[] = [
-  { id: 1, name: "City Medical Store", email: "city@medical.com", phone: "+91 98765 43210", address: "123 Main Street, Mumbai", orders: 45, totalSpent: 125000 },
-  { id: 2, name: "HealthCare Pharmacy", email: "info@healthcare.com", phone: "+91 98765 43211", address: "456 Park Avenue, Delhi", orders: 32, totalSpent: 89000 },
-  { id: 3, name: "MedPlus Distributors", email: "sales@medplus.com", phone: "+91 98765 43212", address: "789 Ring Road, Bangalore", orders: 28, totalSpent: 156000 },
-  { id: 4, name: "Apollo Pharmacy", email: "contact@apollo.com", phone: "+91 98765 43213", address: "321 Lake View, Chennai", orders: 56, totalSpent: 234000 },
-  { id: 5, name: "Wellness Mart", email: "hello@wellness.com", phone: "+91 98765 43214", address: "654 Hill Station, Pune", orders: 19, totalSpent: 67000 },
-];
-
-const initialInvoices: Invoice[] = [
-  { id: "INV-2024-001", customer: "City Medical Store", date: "2024-01-15", dueDate: "2024-02-15", amount: 12500, status: "Paid" },
-  { id: "INV-2024-002", customer: "HealthCare Pharmacy", date: "2024-01-14", dueDate: "2024-02-14", amount: 8500, status: "Pending" },
-  { id: "INV-2024-003", customer: "MedPlus Distributors", date: "2024-01-13", dueDate: "2024-02-13", amount: 24000, status: "Pending" },
-  { id: "INV-2024-004", customer: "Apollo Pharmacy", date: "2024-01-12", dueDate: "2024-02-12", amount: 15000, status: "Paid" },
-  { id: "INV-2024-005", customer: "Wellness Mart", date: "2024-01-11", dueDate: "2024-01-25", amount: 18500, status: "Overdue" },
-];
-
-const getProductStatus = (stock: number): string => {
+export const getProductStatus = (stock: number): string => {
   if (stock === 0) return "Out of Stock";
   if (stock < 20) return "Low Stock";
   return "In Stock";
@@ -124,11 +89,29 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+const generateOrderId = (existingOrders: Order[]): string => {
+  const year = new Date().getFullYear();
+  const yearOrders = existingOrders.filter(o => o.id.includes(`ORD-${year}`));
+  const maxNum = yearOrders.length > 0
+    ? Math.max(...yearOrders.map(o => parseInt(o.id.split('-')[2]) || 0))
+    : 0;
+  return `ORD-${year}-${String(maxNum + 1).padStart(3, '0')}`;
+};
+
+const generateInvoiceId = (existingInvoices: Invoice[]): string => {
+  const year = new Date().getFullYear();
+  const yearInvoices = existingInvoices.filter(i => i.id.includes(`INV-${year}`));
+  const maxNum = yearInvoices.length > 0
+    ? Math.max(...yearInvoices.map(i => parseInt(i.id.split('-')[2]) || 0))
+    : 0;
+  return `INV-${year}-${String(maxNum + 1).padStart(3, '0')}`;
+};
+
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(() => loadFromStorage(STORAGE_KEYS.products, initialProducts));
-  const [orders, setOrders] = useState<Order[]>(() => loadFromStorage(STORAGE_KEYS.orders, initialOrders));
-  const [customers, setCustomers] = useState<Customer[]>(() => loadFromStorage(STORAGE_KEYS.customers, initialCustomers));
-  const [invoices, setInvoices] = useState<Invoice[]>(() => loadFromStorage(STORAGE_KEYS.invoices, initialInvoices));
+  const [products, setProducts] = useState<Product[]>(() => loadFromStorage(STORAGE_KEYS.products, []));
+  const [orders, setOrders] = useState<Order[]>(() => loadFromStorage(STORAGE_KEYS.orders, []));
+  const [customers, setCustomers] = useState<Customer[]>(() => loadFromStorage(STORAGE_KEYS.customers, []));
+  const [invoices, setInvoices] = useState<Invoice[]>(() => loadFromStorage(STORAGE_KEYS.invoices, []));
 
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders)); }, [orders]);
@@ -139,7 +122,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addProduct = (product: Omit<Product, "id" | "status">) => {
     const newProduct: Product = {
       ...product,
-      id: Math.max(...products.map((p) => p.id)) + 1,
+      id: products.length > 0 ? Math.max(...products.map((p) => p.id)) + 1 : 1,
       status: getProductStatus(product.stock),
     };
     setProducts((prev) => [...prev, newProduct]);
@@ -166,12 +149,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Order CRUD
   const addOrder = (order: Omit<Order, "id">) => {
-    const orderNum = orders.length + 1;
-    const newOrder: Order = {
-      ...order,
-      id: `ORD-2024-${String(orderNum).padStart(3, "0")}`,
-    };
-    setOrders((prev) => [...prev, newOrder]);
+    setOrders((prev) => {
+      const newOrder: Order = { ...order, id: generateOrderId(prev) };
+      return [newOrder, ...prev];
+    });
   };
 
   const updateOrder = (id: string, order: Partial<Order>) => {
@@ -186,7 +167,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addCustomer = (customer: Omit<Customer, "id">) => {
     const newCustomer: Customer = {
       ...customer,
-      id: Math.max(...customers.map((c) => c.id)) + 1,
+      id: customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1,
     };
     setCustomers((prev) => [...prev, newCustomer]);
   };
@@ -201,12 +182,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Invoice CRUD
   const addInvoice = (invoice: Omit<Invoice, "id">) => {
-    const invoiceNum = invoices.length + 1;
-    const newInvoice: Invoice = {
-      ...invoice,
-      id: `INV-2024-${String(invoiceNum).padStart(3, "0")}`,
-    };
-    setInvoices((prev) => [...prev, newInvoice]);
+    setInvoices((prev) => {
+      const newInvoice: Invoice = { ...invoice, id: generateInvoiceId(prev) };
+      return [newInvoice, ...prev];
+    });
   };
 
   const updateInvoice = (id: string, invoice: Partial<Invoice>) => {
@@ -220,26 +199,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider
       value={{
-        products,
-        orders,
-        customers,
-        invoices,
-        setProducts,
-        setOrders,
-        setCustomers,
-        setInvoices,
-        addProduct,
-        updateProduct,
-        deleteProduct,
-        addOrder,
-        updateOrder,
-        deleteOrder,
-        addCustomer,
-        updateCustomer,
-        deleteCustomer,
-        addInvoice,
-        updateInvoice,
-        deleteInvoice,
+        products, orders, customers, invoices,
+        setProducts, setOrders, setCustomers, setInvoices,
+        addProduct, updateProduct, deleteProduct,
+        addOrder, updateOrder, deleteOrder,
+        addCustomer, updateCustomer, deleteCustomer,
+        addInvoice, updateInvoice, deleteInvoice,
       }}
     >
       {children}

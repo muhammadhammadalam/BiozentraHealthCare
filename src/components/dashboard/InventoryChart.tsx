@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart,
@@ -7,25 +8,18 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
-
-const data = [
-  { name: "Painkillers", inStock: 450, lowStock: 45, category: "OTC" },
-  { name: "Antibiotics", inStock: 280, lowStock: 32, category: "Prescription" },
-  { name: "Vitamins", inStock: 520, lowStock: 28, category: "Supplements" },
-  { name: "Cardiac", inStock: 180, lowStock: 65, category: "Specialty" },
-  { name: "Diabetes", inStock: 340, lowStock: 48, category: "Specialty" },
-  { name: "Derma", inStock: 290, lowStock: 22, category: "OTC" },
-];
+import { useData } from "@/contexts/DataContext";
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
         <p className="font-medium text-foreground">{label}</p>
-        <p className="text-sm text-accent">In Stock: {payload[0].value} units</p>
-        <p className="text-sm text-warning">Low Stock: {payload[1].value} units</p>
+        <p className="text-sm text-accent">In Stock: {payload[0]?.value ?? 0} units</p>
+        {payload[1] && (
+          <p className="text-sm text-warning">Low/Out: {payload[1].value} units</p>
+        )}
       </div>
     );
   }
@@ -33,6 +27,23 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function InventoryChart() {
+  const { products } = useData();
+
+  const data = useMemo(() => {
+    const categoryMap: Record<string, { inStock: number; lowStock: number }> = {};
+    products.forEach((p) => {
+      if (!categoryMap[p.category]) categoryMap[p.category] = { inStock: 0, lowStock: 0 };
+      if (p.status === "In Stock") {
+        categoryMap[p.category].inStock += p.stock;
+      } else {
+        categoryMap[p.category].lowStock += p.stock;
+      }
+    });
+    return Object.entries(categoryMap).map(([name, vals]) => ({ name, ...vals }));
+  }, [products]);
+
+  const hasData = data.length > 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -52,34 +63,40 @@ export function InventoryChart() {
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-warning" />
-            <span className="text-muted-foreground">Low Stock</span>
+            <span className="text-muted-foreground">Low/Out</span>
           </div>
         </div>
       </div>
-      
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-            <XAxis 
-              dataKey="name" 
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis 
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="inStock" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="lowStock" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+
+      {!hasData ? (
+        <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+          No product data yet. Add products to see inventory by category.
+        </div>
+      ) : (
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis
+                dataKey="name"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="inStock" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="lowStock" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -16,53 +16,49 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
-
-interface NavItem {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  href: string;
-  badge?: number;
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const navigation: NavGroup[] = [
-  {
-    label: "Overview",
-    items: [
-      { title: "Dashboard", icon: LayoutDashboard, href: "/" },
-      { title: "Analytics", icon: BarChart3, href: "/analytics" },
-    ],
-  },
-  {
-    label: "Sales",
-    items: [
-      { title: "Orders", icon: ShoppingCart, href: "/orders", badge: 12 },
-      { title: "Invoices", icon: Receipt, href: "/invoices" },
-    ],
-  },
-  {
-    label: "Inventory",
-    items: [
-      { title: "Products", icon: Package, href: "/products" },
-      { title: "Stock", icon: Package, href: "/stock", badge: 5 },
-    ],
-  },
-  {
-    label: "Contacts",
-    items: [
-      { title: "Customers", icon: Users, href: "/customers" },
-      { title: "Suppliers", icon: Truck, href: "/suppliers" },
-    ],
-  },
-];
+import { useData } from "@/contexts/DataContext";
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { orders, products } = useData();
+
+  // Dynamic badge counts
+  const pendingOrdersCount = orders.filter((o) => o.status === "Pending").length;
+  const lowStockCount = products.filter(
+    (p) => p.status === "Low Stock" || p.status === "Out of Stock"
+  ).length;
+
+  const navigation = [
+    {
+      label: "Overview",
+      items: [
+        { title: "Dashboard", icon: LayoutDashboard, href: "/" },
+        { title: "Analytics", icon: BarChart3, href: "/analytics" },
+      ],
+    },
+    {
+      label: "Sales",
+      items: [
+        { title: "Orders", icon: ShoppingCart, href: "/orders", badge: pendingOrdersCount || undefined },
+        { title: "Invoices", icon: Receipt, href: "/invoices" },
+      ],
+    },
+    {
+      label: "Inventory",
+      items: [
+        { title: "Products", icon: Package, href: "/products" },
+        { title: "Stock", icon: Package, href: "/stock", badge: lowStockCount || undefined },
+      ],
+    },
+    {
+      label: "Contacts",
+      items: [
+        { title: "Customers", icon: Users, href: "/customers" },
+        { title: "Suppliers", icon: Truck, href: "/suppliers" },
+      ],
+    },
+  ];
 
   return (
     <motion.aside
@@ -111,7 +107,7 @@ export function AppSidebar() {
                 </motion.p>
               )}
             </AnimatePresence>
-            
+
             <div className="space-y-1">
               {group.items.map((item) => {
                 const isActive = location.pathname === item.href;
@@ -133,10 +129,14 @@ export function AppSidebar() {
                         transition={{ duration: 0.2 }}
                       />
                     )}
-                    <item.icon className={cn(
-                      "h-5 w-5 shrink-0 transition-colors",
-                      isActive ? "text-sidebar-primary" : "text-muted-foreground group-hover:text-sidebar-foreground"
-                    )} />
+                    <item.icon
+                      className={cn(
+                        "h-5 w-5 shrink-0 transition-colors",
+                        isActive
+                          ? "text-sidebar-primary"
+                          : "text-muted-foreground group-hover:text-sidebar-foreground"
+                      )}
+                    />
                     <AnimatePresence>
                       {!collapsed && (
                         <motion.span
@@ -149,7 +149,7 @@ export function AppSidebar() {
                         </motion.span>
                       )}
                     </AnimatePresence>
-                    {item.badge && !collapsed && (
+                    {item.badge != null && item.badge > 0 && !collapsed && (
                       <motion.span
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}

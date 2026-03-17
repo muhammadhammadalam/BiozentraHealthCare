@@ -1,7 +1,6 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -10,16 +9,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-
-const data = [
-  { name: "Mon", sales: 4200, orders: 24 },
-  { name: "Tue", sales: 3800, orders: 21 },
-  { name: "Wed", sales: 5100, orders: 29 },
-  { name: "Thu", sales: 4600, orders: 26 },
-  { name: "Fri", sales: 5800, orders: 32 },
-  { name: "Sat", sales: 6200, orders: 35 },
-  { name: "Sun", sales: 4900, orders: 28 },
-];
+import { useData } from "@/contexts/DataContext";
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -30,7 +20,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           Sales: Rs. {payload[0].value.toLocaleString()}
         </p>
         <p className="text-sm text-accent">
-          Orders: {payload[1]?.value || payload[0].payload.orders}
+          Orders: {payload[0].payload.orders}
         </p>
       </div>
     );
@@ -39,6 +29,27 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function SalesTrendChart() {
+  const { orders } = useData();
+
+  const data = useMemo(() => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayOrders = orders.filter((o) => o.date === dateStr);
+      days.push({
+        name: dayName,
+        sales: dayOrders.reduce((sum, o) => sum + o.total, 0),
+        orders: dayOrders.length,
+      });
+    }
+    return days;
+  }, [orders]);
+
+  const hasData = data.some((d) => d.sales > 0);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -62,42 +73,50 @@ export function SalesTrendChart() {
           </div>
         </div>
       </div>
-      
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis 
-              dataKey="name" 
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis 
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => `Rs. ${value / 1000}k`}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="sales"
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
-              fill="url(#salesGradient)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+
+      {!hasData ? (
+        <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+          No order data yet. Add orders to see your sales trend.
+        </div>
+      ) : (
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="name"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) =>
+                  v >= 1000 ? `Rs.${(v / 1000).toFixed(0)}k` : `Rs.${v}`
+                }
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="sales"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                fill="url(#salesGradient)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </motion.div>
   );
 }

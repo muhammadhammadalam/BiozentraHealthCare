@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Filter, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, Filter, Pencil, Trash2, Package } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -30,89 +30,63 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { api, ApiProduct } from "@/lib/api";
+import { useData } from "@/contexts/DataContext";
 
-interface Product {
-  id: number;
+const categories = [
+  "Vitamins",
+  "Calcium",
+  "Cough & Cold",
+  "Antibiotics",
+  "Pain Relief",
+  "Cardiac",
+  "Diabetes",
+  "Dermatology",
+  "Supplements",
+  "Other",
+];
+
+interface ProductFormData {
   name: string;
   category: string;
   stock: number;
   price: number;
-  status: string;
 }
 
-const initialProducts: Product[] = [
-  { id: 1, name: "Multivitzen Syrup", category: "Vitamins", stock: 245, price: 185, status: "In Stock" },
-  { id: 2, name: "Kalzen Syrup", category: "Calcium", stock: 180, price: 220, status: "In Stock" },
-  { id: 3, name: "Ivyzen Syrup", category: "Cough & Cold", stock: 12, price: 145, status: "Low Stock" },
-  { id: 4, name: "Multivitzen Tablets", category: "Vitamins", stock: 320, price: 185, status: "In Stock" },
-  { id: 5, name: "Kalzen Tablets", category: "Calcium", stock: 0, price: 220, status: "Out of Stock" },
-];
-
-const categories = ["Vitamins", "Calcium", "Cough & Cold", "Antibiotics", "Pain Relief"];
-
-const emptyProduct: Omit<Product, 'id' | 'status'> = {
+const emptyProduct: ProductFormData = {
   name: "",
   category: "",
   stock: 0,
   price: 0,
 };
 
-const getStatus = (stock: number): string => {
-  if (stock === 0) return "Out of Stock";
-  if (stock <= 20) return "Low Stock";
-  return "In Stock";
-};
-
-const PRODUCTS_KEY = "biozentra-products";
-
 const Products = () => {
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const stored = localStorage.getItem(PRODUCTS_KEY);
-      return stored ? JSON.parse(stored) : initialProducts;
-    } catch { return initialProducts; }
-  });
+  const { products, addProduct, updateProduct, deleteProduct } = useData();
 
-  useEffect(() => {
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const data = await api.products.list();
-        if (data && data.length > 0) {
-          setProducts(data);
-          localStorage.setItem(PRODUCTS_KEY, JSON.stringify(data));
-        }
-      } catch {
-        // Fallback to localStorage on API failure
-      }
-    };
-    loadProducts();
-  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState<Omit<Product, 'id' | 'status'>>(emptyProduct);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<ProductFormData>(emptyProduct);
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleOpenDialog = (product?: Product) => {
-    if (product) {
-      setEditingProduct(product);
-      setFormData({
-        name: product.name,
-        category: product.category,
-        stock: product.stock,
-        price: product.price,
-      });
+  const handleOpenDialog = (productId?: number) => {
+    if (productId != null) {
+      const product = products.find((p) => p.id === productId);
+      if (product) {
+        setEditingId(productId);
+        setFormData({
+          name: product.name,
+          category: product.category,
+          stock: product.stock,
+          price: product.price,
+        });
+      }
     } else {
-      setEditingProduct(null);
+      setEditingId(null);
       setFormData(emptyProduct);
     }
     setIsDialogOpen(true);
@@ -120,71 +94,28 @@ const Products = () => {
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
-    setEditingProduct(null);
+    setEditingId(null);
     setFormData(emptyProduct);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!formData.name || !formData.category || formData.price <= 0) {
       toast.error("Please fill in all required fields");
       return;
     }
-
-    if (editingProduct) {
-      try {
-        const updated = await api.products.update(editingProduct.id, formData);
-        setProducts(products.map(p =>
-          p.id === editingProduct.id
-            ? { ...formData, id: updated.id, status: getStatus(formData.stock) }
-            : p
-        ));
-        toast.success("Product updated successfully");
-      } catch {
-        // Fallback: update local state only
-        setProducts(products.map(p =>
-          p.id === editingProduct.id
-            ? { ...formData, id: editingProduct.id, status: getStatus(formData.stock) }
-            : p
-        ));
-        toast.success("Product updated (offline)");
-      }
+    if (editingId != null) {
+      updateProduct(editingId, formData);
+      toast.success("Product updated successfully");
     } else {
-      try {
-        const created = await api.products.create({
-          ...formData,
-          status: getStatus(formData.stock),
-        });
-        const newProduct: Product = {
-          ...formData,
-          id: created.id,
-          status: getStatus(formData.stock),
-        };
-        setProducts([...products, newProduct]);
-        toast.success("Product added successfully");
-      } catch {
-        // Fallback: use temp ID
-        const newProduct: Product = {
-          ...formData,
-          id: Math.max(0, ...products.map(p => p.id)) + 1,
-          status: getStatus(formData.stock),
-        };
-        setProducts([...products, newProduct]);
-        toast.success("Product added (offline)");
-      }
+      addProduct(formData);
+      toast.success("Product added successfully");
     }
     handleCloseDialog();
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      await api.products.delete(id);
-      setProducts(products.filter(p => p.id !== id));
-      toast.success("Product deleted successfully");
-    } catch {
-      // Fallback: delete from local state
-      setProducts(products.filter(p => p.id !== id));
-      toast.success("Product deleted (offline)");
-    }
+  const handleDelete = (id: number) => {
+    deleteProduct(id);
+    toast.success("Product deleted");
   };
 
   return (
@@ -194,7 +125,11 @@ const Products = () => {
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Products</h1>
           <p className="mt-1 text-muted-foreground">Manage your pharmaceutical products</p>
         </motion.div>
-        <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="flex gap-3">
+        <motion.div
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex gap-3"
+        >
           <Button size="sm" className="gap-2" onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4" /> Add Product
           </Button>
@@ -204,7 +139,7 @@ const Products = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>All Products</CardTitle>
+            <CardTitle>All Products ({filteredProducts.length})</CardTitle>
             <div className="flex gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -222,57 +157,73 @@ const Products = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product, i) => (
-                <motion.tr
-                  key={product.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="border-b transition-colors hover:bg-muted/50"
-                >
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.category}</TableCell>
-                  <TableCell className="text-right">{product.stock}</TableCell>
-                  <TableCell className="text-right">Rs. {product.price}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        product.status === "In Stock"
-                          ? "default"
-                          : product.status === "Low Stock"
-                          ? "secondary"
-                          : "destructive"
-                      }
-                    >
-                      {product.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </motion.tr>
-              ))}
-            </TableBody>
-          </Table>
+          {filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Package className="h-12 w-12 opacity-30 mb-3" />
+              <p className="font-medium">No products yet</p>
+              <p className="text-sm mt-1">Click "Add Product" to get started.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product, i) => (
+                  <motion.tr
+                    key={product.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="border-b transition-colors hover:bg-muted/50"
+                  >
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell>{product.category}</TableCell>
+                    <TableCell className="text-right">{product.stock}</TableCell>
+                    <TableCell className="text-right">Rs. {product.price.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          product.status === "In Stock"
+                            ? "default"
+                            : product.status === "Low Stock"
+                            ? "secondary"
+                            : "destructive"
+                        }
+                      >
+                        {product.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenDialog(product.id)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(product.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </motion.tr>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -280,7 +231,7 @@ const Products = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
+            <DialogTitle>{editingId != null ? "Edit Product" : "Add New Product"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -302,8 +253,10 @@ const Products = () => {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -313,8 +266,11 @@ const Products = () => {
               <Input
                 id="stock"
                 type="number"
+                min="0"
                 value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                onChange={(e) =>
+                  setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })
+                }
                 placeholder="Enter stock quantity"
               />
             </div>
@@ -323,15 +279,22 @@ const Products = () => {
               <Input
                 id="price"
                 type="number"
+                min="0"
                 value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
+                onChange={(e) =>
+                  setFormData({ ...formData, price: parseInt(e.target.value) || 0 })
+                }
                 placeholder="Enter price"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
-            <Button onClick={handleSave}>{editingProduct ? "Update" : "Add"} Product</Button>
+            <Button variant="outline" onClick={handleCloseDialog}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              {editingId != null ? "Update" : "Add"} Product
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

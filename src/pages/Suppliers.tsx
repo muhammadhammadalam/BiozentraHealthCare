@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Building2, Phone, Mail, Package, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, Building2, Phone, Mail, Package, Pencil, Trash2, Truck } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -23,7 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { api, ApiSupplier } from "@/lib/api";
 
 interface Supplier {
   id: number;
@@ -35,14 +34,6 @@ interface Supplier {
   status: string;
   lastOrder: string;
 }
-
-const initialSuppliers: Supplier[] = [
-  { id: 1, name: "PharmaChem Industries", contact: "Vikram Singh", email: "vikram@pharmachem.in", phone: "+91 98111 22334", products: 12, status: "Active", lastOrder: "2026-01-02" },
-  { id: 2, name: "MediRaw Supplies", contact: "Anita Desai", email: "anita@mediraw.in", phone: "+91 87222 33445", products: 8, status: "Active", lastOrder: "2025-12-28" },
-  { id: 3, name: "BioSource Labs", contact: "Karan Mehta", email: "karan@biosource.in", phone: "+91 76333 44556", products: 15, status: "Active", lastOrder: "2026-01-01" },
-  { id: 4, name: "ChemPure Pvt Ltd", contact: "Sunita Rao", email: "sunita@chempure.in", phone: "+91 65444 55667", products: 6, status: "Inactive", lastOrder: "2025-11-15" },
-  { id: 5, name: "GlobalPharma", contact: "Rohit Jain", email: "rohit@globalpharma.in", phone: "+91 54555 66778", products: 20, status: "Active", lastOrder: "2026-01-03" },
-];
 
 const emptySupplier: Omit<Supplier, "id"> = {
   name: "",
@@ -60,8 +51,10 @@ const Suppliers = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     try {
       const stored = localStorage.getItem(SUPPLIERS_KEY);
-      return stored ? JSON.parse(stored) : initialSuppliers;
-    } catch { return initialSuppliers; }
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,26 +66,6 @@ const Suppliers = () => {
     localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(suppliers));
   }, [suppliers]);
 
-  useEffect(() => {
-    const loadSuppliers = async () => {
-      try {
-        const data = await api.suppliers.list();
-        if (data && data.length > 0) {
-          // Map API response (snake_case) to frontend (camelCase)
-          const mapped = data.map(s => ({
-            ...s,
-            lastOrder: s.last_order,
-          }));
-          setSuppliers(mapped);
-          localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(mapped));
-        }
-      } catch {
-        // Fallback to localStorage on API failure
-      }
-    };
-    loadSuppliers();
-  }, []);
-
   const filteredSuppliers = suppliers.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -102,7 +75,15 @@ const Suppliers = () => {
   const handleOpenDialog = (supplier?: Supplier) => {
     if (supplier) {
       setEditingSupplier(supplier);
-      setFormData({ name: supplier.name, contact: supplier.contact, email: supplier.email, phone: supplier.phone, products: supplier.products, status: supplier.status, lastOrder: supplier.lastOrder });
+      setFormData({
+        name: supplier.name,
+        contact: supplier.contact,
+        email: supplier.email,
+        phone: supplier.phone,
+        products: supplier.products,
+        status: supplier.status,
+        lastOrder: supplier.lastOrder,
+      });
     } else {
       setEditingSupplier(null);
       setFormData(emptySupplier);
@@ -116,71 +97,32 @@ const Suppliers = () => {
     setFormData(emptySupplier);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!formData.name || !formData.contact || !formData.email) {
       toast.error("Please fill in all required fields");
       return;
     }
     if (editingSupplier) {
-      try {
-        // Map camelCase to snake_case for API
-        const apiPayload = {
-          ...formData,
-          last_order: formData.lastOrder,
-        };
-        const updated = await api.suppliers.update(editingSupplier.id, apiPayload);
-        setSuppliers((prev) =>
-          prev.map((s) =>
-            s.id === editingSupplier.id
-              ? { ...formData, id: updated.id, lastOrder: updated.last_order }
-              : s
-          )
-        );
-        toast.success("Supplier updated successfully");
-      } catch {
-        // Fallback: update local state only
-        setSuppliers((prev) =>
-          prev.map((s) => (s.id === editingSupplier.id ? { ...formData, id: editingSupplier.id } : s))
-        );
-        toast.success("Supplier updated (offline)");
-      }
+      setSuppliers((prev) =>
+        prev.map((s) =>
+          s.id === editingSupplier.id ? { ...formData, id: editingSupplier.id } : s
+        )
+      );
+      toast.success("Supplier updated successfully");
     } else {
-      try {
-        const apiPayload = {
-          ...formData,
-          last_order: formData.lastOrder,
-        };
-        const created = await api.suppliers.create(apiPayload);
-        const newSupplier: Supplier = {
-          ...formData,
-          id: created.id,
-          lastOrder: created.last_order,
-        };
-        setSuppliers((prev) => [...prev, newSupplier]);
-        toast.success("Supplier added successfully");
-      } catch {
-        // Fallback: use temp ID
-        const newSupplier: Supplier = {
-          ...formData,
-          id: Math.max(0, ...suppliers.map((s) => s.id)) + 1,
-        };
-        setSuppliers((prev) => [...prev, newSupplier]);
-        toast.success("Supplier added (offline)");
-      }
+      const newSupplier: Supplier = {
+        ...formData,
+        id: suppliers.length > 0 ? Math.max(...suppliers.map((s) => s.id)) + 1 : 1,
+      };
+      setSuppliers((prev) => [...prev, newSupplier]);
+      toast.success("Supplier added successfully");
     }
     handleCloseDialog();
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      await api.suppliers.delete(id);
-      setSuppliers((prev) => prev.filter((s) => s.id !== id));
-      toast.success("Supplier deleted successfully");
-    } catch {
-      // Fallback: delete from local state
-      setSuppliers((prev) => prev.filter((s) => s.id !== id));
-      toast.success("Supplier deleted (offline)");
-    }
+  const handleDelete = (id: number) => {
+    setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    toast.success("Supplier deleted");
   };
 
   return (
@@ -190,7 +132,11 @@ const Suppliers = () => {
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Suppliers</h1>
           <p className="mt-1 text-muted-foreground">Manage your supplier network</p>
         </motion.div>
-        <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="flex gap-3">
+        <motion.div
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex gap-3"
+        >
           <Button size="sm" className="gap-2" onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4" /> Add Supplier
           </Button>
@@ -209,65 +155,82 @@ const Suppliers = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredSuppliers.map((supplier, i) => (
-          <motion.div
-            key={supplier.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-          >
-            <Card className="h-full hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-accent/50 text-accent-foreground font-semibold">
-                        <Building2 className="h-5 w-5" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <CardTitle className="text-base">{supplier.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{supplier.contact}</p>
+      {filteredSuppliers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <Truck className="h-14 w-14 opacity-30 mb-3" />
+          <p className="font-medium text-lg">No suppliers yet</p>
+          <p className="text-sm mt-1">Add your first supplier to build your network.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredSuppliers.map((supplier, i) => (
+            <motion.div
+              key={supplier.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <Card className="h-full hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className="bg-accent/50 text-accent-foreground font-semibold">
+                          <Building2 className="h-5 w-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <CardTitle className="text-base">{supplier.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground">{supplier.contact}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Badge variant={supplier.status === "Active" ? "default" : "secondary"}>
+                        {supplier.status}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenDialog(supplier)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(supplier.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Badge variant={supplier.status === "Active" ? "default" : "secondary"}>
-                      {supplier.status}
-                    </Badge>
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(supplier)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(supplier.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {supplier.email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4" />
+                      <span className="truncate">{supplier.email}</span>
+                    </div>
+                  )}
+                  {supplier.phone && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4" />
+                      <span>{supplier.phone}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Package className="h-4 w-4" />
+                    <span>{supplier.products} products supplied</span>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span className="truncate">{supplier.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  <span>{supplier.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Package className="h-4 w-4" />
-                  <span>{supplier.products} products supplied</span>
-                </div>
-                <div className="pt-3 border-t">
-                  <p className="text-xs text-muted-foreground">Last Order: {supplier.lastOrder}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-        {filteredSuppliers.length === 0 && (
-          <p className="col-span-3 text-center text-muted-foreground py-8">No suppliers found.</p>
-        )}
-      </div>
+                  <div className="pt-3 border-t">
+                    <p className="text-xs text-muted-foreground">Last Order: {supplier.lastOrder}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -281,7 +244,7 @@ const Suppliers = () => {
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter company name"
+                placeholder="e.g. Pharma Industries Ltd."
               />
             </div>
             <div className="grid gap-2">
@@ -306,22 +269,30 @@ const Suppliers = () => {
               <Input
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="Enter phone number"
+                placeholder="+92 3XX XXXXXXX"
               />
             </div>
             <div className="grid gap-2">
               <Label>Products Supplied</Label>
               <Input
                 type="number"
+                min="0"
                 value={formData.products}
-                onChange={(e) => setFormData({ ...formData, products: parseInt(e.target.value) || 0 })}
+                onChange={(e) =>
+                  setFormData({ ...formData, products: parseInt(e.target.value) || 0 })
+                }
                 placeholder="Number of products"
               />
             </div>
             <div className="grid gap-2">
               <Label>Status</Label>
-              <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={formData.status}
+                onValueChange={(v) => setFormData({ ...formData, status: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Inactive">Inactive</SelectItem>
@@ -338,7 +309,9 @@ const Suppliers = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
+            <Button variant="outline" onClick={handleCloseDialog}>
+              Cancel
+            </Button>
             <Button onClick={handleSave}>{editingSupplier ? "Update" : "Add"} Supplier</Button>
           </DialogFooter>
         </DialogContent>
