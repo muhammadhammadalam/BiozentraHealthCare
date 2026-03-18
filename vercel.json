@@ -7,15 +7,3 @@
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
-```
-
-**Step 3 — Save**
-Press `Ctrl + S` then close Notepad.
-
-**Step 4 — Push to GitHub**
-
-Open Command Prompt in your project folder and run:
-```
-git add vercel.json
-git commit -m "Fix Vercel build config"
-git push
