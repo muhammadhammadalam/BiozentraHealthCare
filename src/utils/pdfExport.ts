@@ -1,4 +1,4 @@
-import jsPDF, { GState } from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 interface OrderExport {
@@ -60,260 +60,218 @@ function loadCompanyInfo(): CompanyInfo {
   };
 }
 
-// Biozentra logo embedded as base64 for PDF watermark
-const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAfgAAAHyCAYAAAAHs9wZAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAACmXSURBVHhe7d15eFT1vcfxTwJhSQIJRnaQ5SJ4JVwmCuIt+1JXytICiigkLPZSlcVqFbTlogWxrbKouLGKgEWsUKgoS0gKooiQiChSFFAMICgmQAClJPcPydyc38wkM8NMMvnxfj3PPI/zPSdgaOqbc+b8zom65pprCgUAAKwSlZKSQuABALBMlMvlIvAAAFgmyuVyFRYW/tT4rKwsczsAAKhgUlJSFF30pijyAACgYgsLC///QQcAALAHgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsFOVyuQoLCwtVWFio7OxsczsAAKhgUlJSFF30pijyAACgYgsLC///QQcAALAHgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAwEIEHgAACxF4AAAsROABALAQgQcAABb6P/mBrQ/RK0ZJAAAAAElFTkSuQmCC";
-
-/**
- * Adds the Biozentra logo as a centered, semi-transparent watermark on every page.
- */
-const addLogoWatermark = (doc: jsPDF) => {
-  const pageCount = doc.getNumberOfPages();
-  const pageWidth = doc.internal.pageSize.width;
-  const pageHeight = doc.internal.pageSize.height;
-
-  const logoSize = 80; // mm - square logo centered on page
-  const x = (pageWidth - logoSize) / 2;
-  const y = (pageHeight - logoSize) / 2;
-
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    try {
-      doc.saveGraphicsState();
-      doc.setGState(new GState({ opacity: 0.07, "stroke-opacity": 0.07 }));
-      doc.addImage(LOGO_BASE64, "PNG", x, y, logoSize, logoSize);
-      doc.restoreGraphicsState();
-    } catch {
-      // Fallback without opacity if GState not supported
-      doc.addImage(LOGO_BASE64, "PNG", x, y, logoSize, logoSize);
-    }
-  }
-};
-
-export const exportOrdersToPDF = (orders: OrderExport[]) => {
-  const company = loadCompanyInfo();
-  const doc = new jsPDF();
-
-  // Header
-  doc.setFontSize(20);
-  doc.setTextColor(0, 128, 128);
-  doc.text(company.companyName || "BIOZENTRA Healthcare", 14, 22);
-
-  doc.setFontSize(12);
-  doc.setTextColor(100);
-  doc.text("Orders Report", 14, 32);
-  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 40);
-
-  // Table
-  autoTable(doc, {
-    startY: 50,
-    head: [["Order ID", "Customer", "Date", "Items", `Total (${company.currency || "PKR"})`, "Status"]],
-    body: orders.map((order) => [
-      order.id,
-      order.customer,
-      order.date,
-      order.items.toString(),
-      order.total.toLocaleString(),
-      order.status,
-    ]),
-    headStyles: {
-      fillColor: [0, 128, 128],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: {
-      fillColor: [245, 245, 245],
-    },
-    styles: {
-      fontSize: 9,
-      cellPadding: 4,
-    },
-  });
-
-  // Add logo watermark on all pages
-  addLogoWatermark(doc);
-
-  // Footer
+function addPageFooters(doc: jsPDF) {
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(
-      `Page ${i} of ${pageCount}`,
+      `Page ${i} of ${pageCount}  •  Generated by Biozentra Healthcare Dashboard`,
       doc.internal.pageSize.width / 2,
       doc.internal.pageSize.height - 10,
       { align: "center" }
     );
   }
+}
 
+export const exportOrdersToPDF = (orders: OrderExport[]) => {
+  const company = loadCompanyInfo();
+  const doc = new jsPDF();
+  const curr = company.currency || "PKR";
+
+  // Header bar
+  doc.setFillColor(22, 101, 52); // dark green
+  doc.rect(0, 0, doc.internal.pageSize.width, 40, "F");
+
+  doc.setFontSize(22);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.text(company.companyName || "BIOZENTRA Healthcare", 14, 18);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text("Orders Report", 14, 30);
+  doc.text(`Generated: ${new Date().toLocaleDateString("en-PK")}`, 140, 30);
+
+  // Table
+  autoTable(doc, {
+    startY: 50,
+    head: [["Order ID", "Customer", "Date", "Items", `Total (${curr})`, "Status"]],
+    body: orders.map((o) => [
+      o.id,
+      o.customer,
+      o.date,
+      o.items.toString(),
+      o.total.toLocaleString(),
+      o.status,
+    ]),
+    headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [240, 253, 244] },
+    styles: { fontSize: 9, cellPadding: 4 },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 5) {
+        const s = data.cell.raw as string;
+        if (s === "Delivered") data.cell.styles.textColor = [22, 101, 52];
+        else if (s === "Pending") data.cell.styles.textColor = [161, 98, 7];
+        else if (s === "Cancelled") data.cell.styles.textColor = [185, 28, 28];
+      }
+    },
+  });
+
+  addPageFooters(doc);
   doc.save(`biozentra-orders-${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
 export const exportInvoicesToPDF = (invoices: InvoiceExport[]) => {
   const company = loadCompanyInfo();
   const doc = new jsPDF();
-
-  // Header
-  doc.setFontSize(20);
-  doc.setTextColor(0, 128, 128);
-  doc.text(company.companyName || "BIOZENTRA Healthcare", 14, 22);
-
-  doc.setFontSize(12);
-  doc.setTextColor(100);
-  doc.text("Invoices Report", 14, 32);
-  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 40);
-
-  // Summary
-  const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
-  const pendingAmount = invoices
-    .filter((inv) => inv.status === "Pending")
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
   const curr = company.currency || "PKR";
-  doc.text(`Total: ${curr} ${totalAmount.toLocaleString()}`, 140, 32);
-  doc.text(`Pending: ${curr} ${pendingAmount.toLocaleString()}`, 140, 40);
 
-  // Table
+  // Header bar
+  doc.setFillColor(22, 101, 52);
+  doc.rect(0, 0, doc.internal.pageSize.width, 40, "F");
+
+  doc.setFontSize(22);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.text(company.companyName || "BIOZENTRA Healthcare", 14, 18);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text("Invoices Report", 14, 30);
+  doc.text(`Generated: ${new Date().toLocaleDateString("en-PK")}`, 140, 30);
+
+  // Summary stats
+  const totalAmt = invoices.reduce((s, i) => s + i.amount, 0);
+  const paidAmt = invoices.filter(i => i.status === "Paid").reduce((s, i) => s + i.amount, 0);
+  const pendingAmt = invoices.filter(i => i.status === "Pending").reduce((s, i) => s + i.amount, 0);
+
+  doc.setFontSize(10);
+  doc.setTextColor(30, 30, 30);
+  doc.text(`Total: ${curr} ${totalAmt.toLocaleString()}`, 14, 50);
+  doc.text(`Paid: ${curr} ${paidAmt.toLocaleString()}`, 80, 50);
+  doc.text(`Pending: ${curr} ${pendingAmt.toLocaleString()}`, 146, 50);
+
   autoTable(doc, {
-    startY: 50,
+    startY: 58,
     head: [["Invoice ID", "Customer", "Date", "Due Date", `Amount (${curr})`, "Status"]],
-    body: invoices.map((invoice) => [
-      invoice.id,
-      invoice.customer,
-      invoice.date,
-      invoice.dueDate,
-      invoice.amount.toLocaleString(),
-      invoice.status,
+    body: invoices.map((inv) => [
+      inv.id,
+      inv.customer,
+      inv.date,
+      inv.dueDate,
+      inv.amount.toLocaleString(),
+      inv.status,
     ]),
-    headStyles: {
-      fillColor: [0, 128, 128],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: {
-      fillColor: [245, 245, 245],
-    },
-    styles: {
-      fontSize: 9,
-      cellPadding: 4,
-    },
+    headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [240, 253, 244] },
+    styles: { fontSize: 9, cellPadding: 4 },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 5) {
-        const status = data.cell.raw as string;
-        if (status === "Paid") {
-          data.cell.styles.textColor = [0, 128, 0];
-        } else if (status === "Overdue") {
-          data.cell.styles.textColor = [255, 0, 0];
-        } else if (status === "Pending") {
-          data.cell.styles.textColor = [255, 165, 0];
-        }
+        const s = data.cell.raw as string;
+        if (s === "Paid") data.cell.styles.textColor = [22, 101, 52];
+        else if (s === "Overdue") data.cell.styles.textColor = [185, 28, 28];
+        else if (s === "Pending") data.cell.styles.textColor = [161, 98, 7];
       }
     },
   });
 
-  // Add logo watermark on all pages
-  addLogoWatermark(doc);
-
-  // Footer
-  const pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text(
-      `Page ${i} of ${pageCount}`,
-      doc.internal.pageSize.width / 2,
-      doc.internal.pageSize.height - 10,
-      { align: "center" }
-    );
-  }
-
+  addPageFooters(doc);
   doc.save(`biozentra-invoices-${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
 export const exportSingleInvoicePDF = (invoice: InvoiceExport) => {
   const company = loadCompanyInfo();
   const doc = new jsPDF();
-
-  // Header
-  doc.setFontSize(24);
-  doc.setTextColor(0, 128, 128);
-  doc.text(company.companyName || "BIOZENTRA Healthcare", 14, 25);
-
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-
-  // Build address line from settings
-  const addressParts = [company.address, company.city, company.country].filter(Boolean);
-  const addressLine = addressParts.join(", ");
-  if (addressLine) {
-    doc.text(addressLine, 14, 33);
-  }
-
-  // Build contact line from settings
-  const contactParts = [company.email, company.phone].filter(Boolean);
-  const contactLine = contactParts.join(" | ");
-  if (contactLine) {
-    doc.text(contactLine, 14, addressLine ? 40 : 33);
-  }
-
   const curr = company.currency || "PKR";
 
-  // Invoice title
-  doc.setFontSize(18);
-  doc.setTextColor(0);
-  doc.text("INVOICE", 150, 25);
+  // Top green header bar
+  doc.setFillColor(22, 101, 52);
+  doc.rect(0, 0, doc.internal.pageSize.width, 45, "F");
 
+  doc.setFontSize(22);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.text(company.companyName || "BIOZENTRA Healthcare", 14, 18);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const addressParts = [company.address, company.city, company.country].filter(Boolean);
+  if (addressParts.length > 0) doc.text(addressParts.join(", "), 14, 27);
+  const contactParts = [company.email, company.phone].filter(Boolean);
+  if (contactParts.length > 0) doc.text(contactParts.join("  |  "), 14, 35);
+
+  // Invoice label (right side of header)
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.text("INVOICE", 150, 20);
   doc.setFontSize(11);
-  doc.text(invoice.id, 150, 33);
-  doc.setTextColor(100);
-  doc.text(`Date: ${invoice.date}`, 150, 41);
-  doc.text(`Due: ${invoice.dueDate}`, 150, 49);
+  doc.setFont("helvetica", "normal");
+  doc.text(invoice.id, 150, 30);
+  doc.setFontSize(9);
+  doc.text(`Date: ${invoice.date}`, 150, 38);
 
   // Divider
-  doc.setDrawColor(200);
+  doc.setDrawColor(22, 101, 52);
+  doc.setLineWidth(0.5);
   doc.line(14, 55, 196, 55);
 
-  // Bill To
-  doc.setFontSize(10);
+  // Bill To section
+  doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text("BILL TO:", 14, 70);
-  doc.setFontSize(12);
-  doc.setTextColor(0);
-  doc.text(invoice.customer, 14, 78);
+  doc.text("BILL TO:", 14, 65);
+  doc.setFontSize(13);
+  doc.setTextColor(20, 20, 20);
+  doc.setFont("helvetica", "bold");
+  doc.text(invoice.customer, 14, 73);
+  doc.setFont("helvetica", "normal");
 
-  // Amount box
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(120, 65, 76, 25, 3, 3, "F");
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text("AMOUNT DUE", 130, 75);
-  doc.setFontSize(16);
-  doc.setTextColor(0);
-  doc.text(`${curr} ${invoice.amount.toLocaleString()}`, 130, 85);
+  // Invoice details box
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(120, 58, 76, 55, 3, 3, "F");
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.text("Invoice No:", 128, 68);
+  doc.text("Issue Date:", 128, 78);
+  doc.text("Due Date:", 128, 88);
+  doc.setTextColor(20);
+  doc.setFont("helvetica", "bold");
+  doc.text(invoice.id, 162, 68);
+  doc.text(invoice.date, 162, 78);
+  doc.text(invoice.dueDate, 162, 88);
 
-  // Status
+  // Amount Due
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.setFont("helvetica", "normal");
+  doc.text("AMOUNT DUE", 128, 100);
+  doc.setFontSize(15);
+  doc.setTextColor(22, 101, 52);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${curr} ${invoice.amount.toLocaleString()}`, 128, 109);
+
+  // Status badge
   const statusColors: Record<string, [number, number, number]> = {
-    Paid: [0, 128, 0],
-    Pending: [255, 165, 0],
-    Overdue: [255, 0, 0],
+    Paid: [22, 101, 52],
+    Pending: [161, 98, 7],
+    Overdue: [185, 28, 28],
   };
-  doc.setFontSize(12);
-  doc.setTextColor(...(statusColors[invoice.status] || [0, 0, 0]));
-  doc.text(`Status: ${invoice.status}`, 14, 100);
-
-  // Add logo watermark
-  addLogoWatermark(doc);
+  const col = statusColors[invoice.status] || [80, 80, 80];
+  doc.setFillColor(...col);
+  doc.roundedRect(14, 83, 35, 10, 2, 2, "F");
+  doc.setFontSize(9);
+  doc.setTextColor(255);
+  doc.setFont("helvetica", "bold");
+  doc.text(invoice.status.toUpperCase(), 31.5, 89.5, { align: "center" });
 
   // Footer
   doc.setFontSize(9);
-  doc.setTextColor(150);
-  doc.text("Thank you for your business!", 14, doc.internal.pageSize.height - 20);
-  doc.text(
-    "Generated by Biozentra Healthcare Dashboard",
-    14,
-    doc.internal.pageSize.height - 14
-  );
+  doc.setTextColor(130);
+  doc.setFont("helvetica", "normal");
+  doc.line(14, doc.internal.pageSize.height - 22, 196, doc.internal.pageSize.height - 22);
+  doc.text("Thank you for your business!", 14, doc.internal.pageSize.height - 16);
+  doc.text("Generated by Biozentra Healthcare Dashboard", 14, doc.internal.pageSize.height - 10);
 
   doc.save(`${invoice.id}.pdf`);
 };
