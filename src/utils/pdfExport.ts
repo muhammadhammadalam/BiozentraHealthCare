@@ -81,21 +81,33 @@ async function loadLogoBase64(): Promise<string | null> {
   }
 }
 
-// ── Letterhead: header + watermark ──────────────────────────────────────────
+// ── Letterhead: top section ───────────────────────────────────────────────────
 function drawLetterhead(doc: jsPDF, logoB64: string | null, company: CompanyInfo) {
   const W = doc.internal.pageSize.width;
   const H = doc.internal.pageSize.height;
 
-  // ── Top green accent bar (thin) ──
+  // Faded watermark — draw first so it's behind everything
+  if (logoB64) {
+    try {
+      // Draw the logo large and very lightly in the background
+      // We fake low opacity by drawing a near-white rect on top after the image
+      doc.addImage(logoB64, "PNG", W * 0.28, H * 0.18, W * 0.58, H * 0.58);
+      doc.setFillColor(255, 255, 255);
+      // 93% white overlay — leaves ~7% of image visible
+      doc.rect(W * 0.28, H * 0.18, W * 0.58, H * 0.58, "F");
+    } catch { /* skip watermark if image fails */ }
+  }
+
+  // Green top accent bar
   doc.setFillColor(22, 101, 52);
   doc.rect(0, 0, W, 3, "F");
 
-  // ── Logo top-left ──
+  // Logo top-left
   if (logoB64) {
-    try { doc.addImage(logoB64, "PNG", 12, 6, 16, 16); } catch { /* skip if error */ }
+    try { doc.addImage(logoB64, "PNG", 12, 6, 16, 16); } catch { /* skip */ }
   }
 
-  // ── Company name ──
+  // Company name
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(22, 101, 52);
@@ -105,29 +117,13 @@ function drawLetterhead(doc: jsPDF, logoB64: string | null, company: CompanyInfo
   doc.setTextColor(60, 60, 60);
   doc.text("HEALTHCARE", 31, 19);
 
-  // ── Faded watermark logo (centre-right of page) ──
-  if (logoB64) {
-    try {
-      // Draw a very light logo in the center of the page
-      doc.saveGraphicsState();
-      // Use a low global alpha approximation by drawing a white rectangle over (workaround)
-      // Actually we'll place image then overlay a white semi-transparent rect
-      doc.addImage(logoB64, "PNG", W * 0.3, H * 0.2, W * 0.55, H * 0.55);
-      // White overlay to fade it
-      doc.setFillColor(255, 255, 255);
-      doc.setGState(doc.GState({ opacity: 0.91 }));
-      doc.rect(W * 0.3, H * 0.2, W * 0.55, H * 0.55, "F");
-      doc.restoreGraphicsState();
-    } catch { /* skip watermark if error */ }
-  }
-
-  // ── Separator line under header ──
+  // Separator line
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
   doc.line(12, 26, W - 12, 26);
 }
 
-// ── Green footer bar ─────────────────────────────────────────────────────────
+// ── Green footer bar ──────────────────────────────────────────────────────────
 function drawLetterheadFooter(doc: jsPDF, company: CompanyInfo) {
   const W = doc.internal.pageSize.width;
   const H = doc.internal.pageSize.height;
@@ -144,22 +140,16 @@ function drawLetterheadFooter(doc: jsPDF, company: CompanyInfo) {
   const phone   = company.phone   || "+92 321 9221901";
   const email   = company.email   || "info@biozentra.pk";
   const website = "www.biozentra.pk";
-  const address = [company.address, company.city, company.country].filter(Boolean).join(", ");
+  const address = [company.address, company.city].filter(Boolean).join(", ") || "Karachi, Pakistan";
 
-  // Evenly space across the footer bar
-  const items = [
-    `✆  ${phone}`,
-    `✉  ${email}`,
-    `⊕  ${website}`,
-    `⌂  ${address}`,
-  ];
+  const items = [`Tel: ${phone}`, `Email: ${email}`, `Web: ${website}`, address];
   const colW = W / items.length;
   items.forEach((text, i) => {
     doc.text(text, colW * i + colW / 2, barY + 9, { align: "center" });
   });
 }
 
-// ── Page number footer (above the green bar) ──────────────────────────────────
+// ── Page numbers ──────────────────────────────────────────────────────────────
 function addPageNumbers(doc: jsPDF) {
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
@@ -175,20 +165,19 @@ function addPageNumbers(doc: jsPDF) {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS
-// ────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const exportOrdersToPDF = async (orders: OrderExport[]) => {
-  const company  = loadCompanyInfo();
-  const logoB64  = await loadLogoBase64();
-  const doc      = new jsPDF();
-  const curr     = company.currency || "PKR";
-  const W        = doc.internal.pageSize.width;
+  const company = loadCompanyInfo();
+  const logoB64 = await loadLogoBase64();
+  const doc     = new jsPDF();
+  const curr    = company.currency || "PKR";
+  const W       = doc.internal.pageSize.width;
 
   drawLetterhead(doc, logoB64, company);
 
-  // Report title
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(20);
@@ -217,20 +206,17 @@ export const exportOrdersToPDF = async (orders: OrderExport[]) => {
   });
 
   addPageNumbers(doc);
-  // Draw footer on every page
-  for (let i = 1; i <= doc.getNumberOfPages(); i++) {
-    doc.setPage(i);
-    drawLetterheadFooter(doc, company);
-  }
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) { doc.setPage(i); drawLetterheadFooter(doc, company); }
   doc.save(`biozentra-orders-${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
 export const exportInvoicesToPDF = async (invoices: InvoiceExport[]) => {
-  const company  = loadCompanyInfo();
-  const logoB64  = await loadLogoBase64();
-  const doc      = new jsPDF();
-  const curr     = company.currency || "PKR";
-  const W        = doc.internal.pageSize.width;
+  const company = loadCompanyInfo();
+  const logoB64 = await loadLogoBase64();
+  const doc     = new jsPDF();
+  const curr    = company.currency || "PKR";
+  const W       = doc.internal.pageSize.width;
 
   drawLetterhead(doc, logoB64, company);
 
@@ -271,10 +257,8 @@ export const exportInvoicesToPDF = async (invoices: InvoiceExport[]) => {
   });
 
   addPageNumbers(doc);
-  for (let i = 1; i <= doc.getNumberOfPages(); i++) {
-    doc.setPage(i);
-    drawLetterheadFooter(doc, company);
-  }
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) { doc.setPage(i); drawLetterheadFooter(doc, company); }
   doc.save(`biozentra-invoices-${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
@@ -283,15 +267,15 @@ export const exportSingleInvoicePDF = async (
   lineItems?: LineItem[],
   discountPct?: number
 ) => {
-  const company  = loadCompanyInfo();
-  const logoB64  = await loadLogoBase64();
-  const doc      = new jsPDF();
-  const curr     = company.currency || "PKR";
-  const W        = doc.internal.pageSize.width;
+  const company = loadCompanyInfo();
+  const logoB64 = await loadLogoBase64();
+  const doc     = new jsPDF();
+  const curr    = company.currency || "PKR";
+  const W       = doc.internal.pageSize.width;
 
   drawLetterhead(doc, logoB64, company);
 
-  // ── Invoice label ─────────────────────────────────────────────────────────
+  // Invoice label top-right
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(22, 101, 52);
@@ -301,19 +285,18 @@ export const exportSingleInvoicePDF = async (
   doc.setTextColor(80);
   doc.text(invoice.id, W - 14, 22, { align: "right" });
 
-  // ── Bill To + details box ─────────────────────────────────────────────────
+  // Bill To + details box
   const y0 = 34;
 
   doc.setFontSize(7.5);
   doc.setTextColor(130);
   doc.setFont("helvetica", "bold");
   doc.text("BILL TO", 14, y0);
-  doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(20);
   doc.text(invoice.customer, 14, y0 + 8);
 
-  // Details box (right)
+  // Green details box
   doc.setFillColor(240, 253, 244);
   doc.roundedRect(W - 78, y0 - 2, 64, 32, 2, 2, "F");
   doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(110);
@@ -322,23 +305,22 @@ export const exportSingleInvoicePDF = async (
   doc.text("Issue Date:", bx, y0 + 13);
   doc.text("Due Date:",   bx, y0 + 21);
   doc.setFont("helvetica", "bold"); doc.setTextColor(20);
-  doc.text(invoice.id,    bx + 22, y0 + 5);
-  doc.text(invoice.date,  bx + 22, y0 + 13);
-  doc.text(invoice.dueDate, bx + 22, y0 + 21);
+  doc.text(invoice.id,       bx + 22, y0 + 5);
+  doc.text(invoice.date,     bx + 22, y0 + 13);
+  doc.text(invoice.dueDate,  bx + 22, y0 + 21);
 
   // Status badge
-  const statusColors: Record<string, [number, number, number]> = {
+  const statusMap: Record<string, [number, number, number]> = {
     Paid: [22, 101, 52], Pending: [161, 98, 7], Overdue: [185, 28, 28],
   };
-  const col = statusColors[invoice.status] || [80, 80, 80];
+  const col = statusMap[invoice.status] || [80, 80, 80];
   doc.setFillColor(...col);
   doc.roundedRect(14, y0 + 12, 26, 8, 1.5, 1.5, "F");
   doc.setFontSize(7); doc.setTextColor(255); doc.setFont("helvetica", "bold");
   doc.text(invoice.status.toUpperCase(), 27, y0 + 17.5, { align: "center" });
 
-  // ── Line items table ───────────────────────────────────────────────────────
+  // Line items table
   const tableY = y0 + 40;
-
   if (lineItems && lineItems.length > 0) {
     autoTable(doc, {
       startY: tableY,
@@ -363,25 +345,22 @@ export const exportSingleInvoicePDF = async (
     });
   }
 
-  // ── Totals box ────────────────────────────────────────────────────────────
+  // Totals block
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const afterTable = (doc as any).lastAutoTable?.finalY ?? tableY + 20;
-  let ty = afterTable + 6;
+  let ty = afterTable + 8;
 
-  // Calculate amounts
   const subtotal    = lineItems ? lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0) : invoice.amount;
   const pct         = discountPct || 0;
   const discountAmt = subtotal * pct / 100;
-  const totalAmt    = invoice.amount; // already discounted by caller
 
   const boxX = W - 82;
   const boxW = 68;
 
+  // Subtotal row
   doc.setFillColor(248, 252, 248);
   doc.setDrawColor(200, 230, 210);
   doc.setLineWidth(0.3);
-
-  // Subtotal row
   doc.rect(boxX, ty, boxW, 8, "FD");
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(80);
   doc.text("Subtotal", boxX + 4, ty + 5.5);
@@ -389,25 +368,25 @@ export const exportSingleInvoicePDF = async (
   doc.text(`${curr} ${subtotal.toLocaleString()}`, boxX + boxW - 4, ty + 5.5, { align: "right" });
   ty += 8;
 
-  // Discount row (only if there's a discount)
+  // Discount row
   if (pct > 0) {
     doc.setFillColor(255, 248, 248);
     doc.rect(boxX, ty, boxW, 8, "FD");
     doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(180, 40, 40);
     doc.text(`Discount (${pct}%)`, boxX + 4, ty + 5.5);
-    doc.text(`− ${curr} ${discountAmt.toLocaleString()}`, boxX + boxW - 4, ty + 5.5, { align: "right" });
+    doc.text(`- ${curr} ${discountAmt.toLocaleString()}`, boxX + boxW - 4, ty + 5.5, { align: "right" });
     ty += 8;
   }
 
-  // Total row
+  // Total due row
   doc.setFillColor(22, 101, 52);
   doc.rect(boxX, ty, boxW, 12, "F");
   doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(200, 255, 200);
   doc.text("TOTAL DUE", boxX + 4, ty + 7);
   doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(255);
-  doc.text(`${curr} ${totalAmt.toLocaleString()}`, boxX + boxW - 4, ty + 8, { align: "right" });
+  doc.text(`${curr} ${invoice.amount.toLocaleString()}`, boxX + boxW - 4, ty + 8, { align: "right" });
 
-  // ── Footer ─────────────────────────────────────────────────────────────────
+  // Thank you note
   const pH = doc.internal.pageSize.height;
   doc.setFont("helvetica", "italic");
   doc.setFontSize(8.5);

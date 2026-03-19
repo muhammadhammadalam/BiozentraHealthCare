@@ -111,9 +111,9 @@ const Invoices = () => {
     setIsViewDialogOpen(true);
   };
 
-  const handleDownloadSingle = (invoice: (typeof invoices)[0]) => {
+  const handleDownloadSingle = async (invoice: (typeof invoices)[0]) => {
     try {
-      exportSingleInvoicePDF({
+      await exportSingleInvoicePDF({
         id: invoice.id,
         customer: invoice.customer,
         date: invoice.date,
@@ -127,13 +127,13 @@ const Invoices = () => {
     }
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     if (invoices.length === 0) {
       toast.error("No invoices to export");
       return;
     }
     try {
-      exportInvoicesToPDF(
+      await exportInvoicesToPDF(
         invoices.map((i) => ({
           id: i.id,
           customer: i.customer,

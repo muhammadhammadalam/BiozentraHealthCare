@@ -69,13 +69,13 @@ const Index = () => {
   const revTrend = calcTrend(monthlyRevenue, monthlyRevenueLast);
 
   // ── Download report ───────────────────────────────────────────────────────
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (orders.length === 0) {
       toast.error("No orders to download yet");
       return;
     }
     try {
-      exportOrdersToPDF(
+      await exportOrdersToPDF(
         orders.map(o => ({
           id: o.id,
           customer: o.customer,

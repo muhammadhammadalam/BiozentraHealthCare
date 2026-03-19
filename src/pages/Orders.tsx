@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useData, LineItem } from "@/contexts/DataContext";
@@ -389,23 +389,21 @@ const Orders = () => {
                         <SelectValue placeholder="Select product" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="_header" disabled className="text-xs text-muted-foreground font-semibold">
-                          — Catalog —
-                        </SelectItem>
-                        {Object.entries(CATALOG).map(([name, price]) => (
-                          <SelectItem key={name} value={name}>
-                            {name} <span className="text-muted-foreground ml-1 text-xs">Rs. {price}</span>
-                          </SelectItem>
-                        ))}
-                        {allProducts.filter(p => !(p.name in CATALOG)).length > 0 && (
-                          <>
-                            <SelectItem value="_header2" disabled className="text-xs text-muted-foreground font-semibold">
-                              — Inventory —
+                        <SelectGroup>
+                          <SelectLabel className="text-xs">Catalog</SelectLabel>
+                          {Object.entries(CATALOG).map(([name, price]) => (
+                            <SelectItem key={name} value={name}>
+                              {name}&nbsp;&nbsp;<span className="text-muted-foreground text-xs">Rs. {price}</span>
                             </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        {allProducts.filter(p => !(p.name in CATALOG)).length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="text-xs">Inventory</SelectLabel>
                             {allProducts.filter(p => !(p.name in CATALOG)).map(p => (
                               <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
                             ))}
-                          </>
+                          </SelectGroup>
                         )}
                       </SelectContent>
                     </Select>
