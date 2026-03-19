@@ -22,13 +22,10 @@ import {
 import { toast } from "sonner";
 import { useData, LineItem } from "@/contexts/DataContext";
 import { exportSingleInvoicePDF } from "@/utils/pdfExport";
+import { CATALOG as CATALOG_ITEMS, CATALOG_MAP as CATALOG } from "@/lib/catalog";
 
 // ─── Predefined product catalog ────────────────────────────────────────────────
-const CATALOG: Record<string, number> = {
-  "IvyZen":      229.50,
-  "MiltivitZen": 263.50,
-  "KalZen":      272.00,
-};
+
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -391,7 +388,7 @@ const Orders = () => {
                       <SelectContent>
                         <SelectGroup>
                           <SelectLabel className="text-xs">Catalog</SelectLabel>
-                          {Object.entries(CATALOG).map(([name, price]) => (
+                          {CATALOG_ITEMS.map(({ name, price }) => (
                             <SelectItem key={name} value={name}>
                               {name}&nbsp;&nbsp;<span className="text-muted-foreground text-xs">Rs. {price}</span>
                             </SelectItem>

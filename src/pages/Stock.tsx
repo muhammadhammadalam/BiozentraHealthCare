@@ -16,14 +16,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel,
+  SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useData } from "@/contexts/DataContext";
+import { CATALOG, CATALOG_MAP, mergedProductNames } from "@/lib/catalog";
 
 interface StockItem {
   id: number;
@@ -151,10 +149,11 @@ const Stock = () => {
     toast.success("Stock item deleted");
   };
 
-  // Product names from DataContext for dropdown
-  const productNames = products.map((p) => p.name);
-  // Also include any names already in stock not yet in products
-  const allNames = Array.from(new Set([...productNames, ...stockItems.map((s) => s.name)]));
+  // Merge catalog + product names + existing stock names
+  const extraNames = Array.from(new Set([
+    ...products.map((p) => p.name),
+    ...stockItems.map((s) => s.name),
+  ])).filter((n) => !(n in CATALOG_MAP));
 
   return (
     <DashboardLayout>
@@ -313,29 +312,30 @@ const Stock = () => {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>Product Name *</Label>
-              {allNames.length > 0 ? (
-                <Select
-                  value={formData.name}
-                  onValueChange={(v) => setFormData({ ...formData, name: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select or type product name" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allNames.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
+              <Select value={formData.name} onValueChange={(v) => setFormData({ ...formData, name: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Catalog</SelectLabel>
+                    {CATALOG.map((item) => (
+                      <SelectItem key={item.name} value={item.name}>
+                        {item.name}
+                        <span className="ml-2 text-xs text-muted-foreground">Rs. {item.price}</span>
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter product name"
-                />
-              )}
+                  </SelectGroup>
+                  {extraNames.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Other</SelectLabel>
+                      {extraNames.map((n) => (
+                        <SelectItem key={n} value={n}>{n}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label>Batch Number *</Label>

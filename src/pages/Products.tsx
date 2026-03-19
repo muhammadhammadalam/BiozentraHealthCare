@@ -8,41 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Plus, Filter, Pencil, Trash2, Package } from "lucide-react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel,
+  SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useData } from "@/contexts/DataContext";
+import { CATALOG, CATALOG_MAP } from "@/lib/catalog";
 
 const categories = [
-  "Vitamins",
-  "Calcium",
-  "Cough & Cold",
-  "Antibiotics",
-  "Pain Relief",
-  "Cardiac",
-  "Diabetes",
-  "Dermatology",
-  "Supplements",
-  "Other",
+  "Vitamins", "Calcium", "Cough & Cold", "Antibiotics", "Pain Relief",
+  "Cardiac", "Diabetes", "Dermatology", "Supplements", "Other",
 ];
 
 interface ProductFormData {
@@ -52,12 +33,7 @@ interface ProductFormData {
   price: number;
 }
 
-const emptyProduct: ProductFormData = {
-  name: "",
-  category: "",
-  stock: 0,
-  price: 0,
-};
+const emptyProduct: ProductFormData = { name: "", category: "", stock: 0, price: 0 };
 
 const Products = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useData();
@@ -67,10 +43,15 @@ const Products = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(emptyProduct);
 
+  // Extra product names already saved but not in catalog
+  const extraNames = products
+    .map((p) => p.name)
+    .filter((n) => !(n in CATALOG_MAP));
+
   const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase())
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleOpenDialog = (productId?: number) => {
@@ -78,12 +59,7 @@ const Products = () => {
       const product = products.find((p) => p.id === productId);
       if (product) {
         setEditingId(productId);
-        setFormData({
-          name: product.name,
-          category: product.category,
-          stock: product.stock,
-          price: product.price,
-        });
+        setFormData({ name: product.name, category: product.category, stock: product.stock, price: product.price });
       }
     } else {
       setEditingId(null);
@@ -96,6 +72,16 @@ const Products = () => {
     setIsDialogOpen(false);
     setEditingId(null);
     setFormData(emptyProduct);
+  };
+
+  // When a product name is selected, auto-fill price from catalog
+  const handleNameSelect = (name: string) => {
+    const catalogPrice = CATALOG_MAP[name];
+    setFormData((prev) => ({
+      ...prev,
+      name,
+      price: catalogPrice !== undefined ? catalogPrice : prev.price,
+    }));
   };
 
   const handleSave = () => {
@@ -125,11 +111,7 @@ const Products = () => {
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Products</h1>
           <p className="mt-1 text-muted-foreground">Manage your pharmaceutical products</p>
         </motion.div>
-        <motion.div
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="flex gap-3"
-        >
+        <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="flex gap-3">
           <Button size="sm" className="gap-2" onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4" /> Add Product
           </Button>
@@ -143,16 +125,10 @@ const Products = () => {
             <div className="flex gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search products..."
-                  className="pl-9 w-64"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+                <Input placeholder="Search products..." className="pl-9 w-64"
+                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
+              <Button variant="outline" size="icon"><Filter className="h-4 w-4" /></Button>
             </div>
           </div>
         </CardHeader>
@@ -177,10 +153,8 @@ const Products = () => {
               </TableHeader>
               <TableBody>
                 {filteredProducts.map((product, i) => (
-                  <motion.tr
-                    key={product.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
+                  <motion.tr key={product.id}
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                     className="border-b transition-colors hover:bg-muted/50"
                   >
@@ -189,32 +163,20 @@ const Products = () => {
                     <TableCell className="text-right">{product.stock}</TableCell>
                     <TableCell className="text-right">Rs. {product.price.toLocaleString()}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          product.status === "In Stock"
-                            ? "default"
-                            : product.status === "Low Stock"
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
+                      <Badge variant={
+                        product.status === "In Stock" ? "default"
+                        : product.status === "Low Stock" ? "secondary"
+                        : "destructive"
+                      }>
                         {product.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(product.id)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product.id)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(product.id)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -234,67 +196,67 @@ const Products = () => {
             <DialogTitle>{editingId != null ? "Edit Product" : "Add New Product"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+
+            {/* Product Name — dropdown */}
             <div className="grid gap-2">
-              <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter product name"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
+              <Label>Product Name *</Label>
+              <Select value={formData.name} onValueChange={handleNameSelect}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    <SelectLabel>Catalog</SelectLabel>
+                    {CATALOG.map((item) => (
+                      <SelectItem key={item.name} value={item.name}>
+                        {item.name}
+                        <span className="ml-2 text-xs text-muted-foreground">Rs. {item.price}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  {extraNames.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Existing</SelectLabel>
+                      {extraNames.map((n) => (
+                        <SelectItem key={n} value={n}>{n}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Category */}
             <div className="grid gap-2">
-              <Label htmlFor="stock">Stock Quantity</Label>
-              <Input
-                id="stock"
-                type="number"
-                min="0"
-                value={formData.stock}
-                onChange={(e) =>
-                  setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })
-                }
-                placeholder="Enter stock quantity"
-              />
+              <Label>Category *</Label>
+              <Select value={formData.category}
+                onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* Stock */}
             <div className="grid gap-2">
-              <Label htmlFor="price">Price (Rs.) *</Label>
-              <Input
-                id="price"
-                type="number"
-                min="0"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: parseInt(e.target.value) || 0 })
-                }
-                placeholder="Enter price"
-              />
+              <Label>Stock Quantity</Label>
+              <Input inputMode="numeric" placeholder="0"
+                value={formData.stock === 0 ? "" : formData.stock.toString()}
+                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })} />
+            </div>
+
+            {/* Price — auto-filled from catalog, editable */}
+            <div className="grid gap-2">
+              <Label>Price (Rs.) *</Label>
+              <Input inputMode="numeric" placeholder="0.00"
+                value={formData.price === 0 ? "" : formData.price.toString()}
+                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>
-              {editingId != null ? "Update" : "Add"} Product
-            </Button>
+            <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleSave}>{editingId != null ? "Update" : "Add"} Product</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
