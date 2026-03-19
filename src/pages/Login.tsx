@@ -46,59 +46,48 @@ export default function Login() {
   return (
     <div className="flex min-h-screen">
       {/* ── Left Panel: Branding ──────────────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[45%] flex-col justify-between bg-[#0f2e1a] p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[45%] flex-col items-center justify-center bg-[#0f2e1a] relative overflow-hidden">
         {/* subtle dot texture */}
         <div className="absolute inset-0 opacity-[0.04]"
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
-
         {/* top accent line */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600" />
 
-        <div className="relative z-10">
-          {/* Logo — enlarged */}
-          <div className="flex items-center gap-5 mb-16">
-            <div className="h-20 w-20 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center p-2.5">
-              <img src={logo} alt="Biozentra" className="h-full w-full object-contain" />
-            </div>
-            <div>
-              <p className="text-white font-bold tracking-widest text-xl">BIOZENTRA</p>
-              <p className="text-emerald-400/80 text-sm mt-0.5">Healthcare Management</p>
-            </div>
+        {/* Centered branding */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          className="relative z-10 flex flex-col items-center gap-6 px-12 text-center"
+        >
+          {/* Large logo */}
+          <div className="h-36 w-36 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center p-4">
+            <img src={logo} alt="Biozentra" className="h-full w-full object-contain" />
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-          >
-            <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-              Manage your<br />
-              <span className="text-emerald-400">healthcare business</span><br />
-              with confidence.
-            </h1>
-            <p className="text-slate-400 text-base leading-relaxed max-w-sm">
-              A complete dashboard for tracking orders, inventory, invoices, and customers — built for Pakistan and the Middle East.
-            </p>
-          </motion.div>
-        </div>
+          {/* Company name */}
+          <div>
+            <p className="text-white font-bold tracking-widest text-3xl">BIOZENTRA</p>
+            <p className="text-emerald-400/80 text-base mt-1 tracking-wide">Healthcare Management</p>
+          </div>
+        </motion.div>
 
-        {/* Bottom: copyright only — feature cards removed */}
-        <div className="relative z-10">
-          <p className="text-slate-600 text-xs">© {new Date().getFullYear()} Biozentra Healthcare. All rights reserved.</p>
-        </div>
+        {/* Copyright pinned to bottom */}
+        <p className="absolute bottom-6 text-slate-600 text-xs">
+          © {new Date().getFullYear()} Biozentra Healthcare. All rights reserved.
+        </p>
       </div>
 
       {/* ── Right Panel: Form ─────────────────────────────────────────────── */}
       <div className="flex flex-1 items-center justify-center bg-white dark:bg-slate-950 p-8 relative overflow-hidden">
-
         {/* Faded watermark logo */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <img
             src={logo}
             alt=""
             aria-hidden="true"
-            className="w-[70%] max-w-[420px] object-contain select-none"
-            style={{ opacity: 0.045, filter: "grayscale(100%)" }}
+            className="w-[72%] max-w-[440px] object-contain select-none"
+            style={{ opacity: 0.05, filter: "grayscale(100%)" }}
           />
         </div>
 

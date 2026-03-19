@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Search, Plus, Eye, Pencil, Trash2, ShoppingCart, FileText,
-  PlusCircle, MinusCircle, Download,
+  PlusCircle, MinusCircle, Download, Tag,
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -22,6 +22,13 @@ import {
 import { toast } from "sonner";
 import { useData, LineItem } from "@/contexts/DataContext";
 import { exportSingleInvoicePDF } from "@/utils/pdfExport";
+
+// ─── Predefined product catalog ────────────────────────────────────────────────
+const CATALOG: Record<string, number> = {
+  "IvyZen":      229.50,
+  "MiltivitZen": 263.50,
+  "KalZen":      272.00,
+};
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -40,7 +47,7 @@ function lineItemsToString(items: LineItem[]) {
   return items.filter(i => i.product).map(i => `${i.product} x${i.qty}`).join(", ");
 }
 
-function calcTotal(items: LineItem[]) {
+function calcSubtotal(items: LineItem[]) {
   return items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
 }
 
@@ -49,7 +56,12 @@ const Orders = () => {
   const { orders, customers, products: allProducts, addOrder, updateOrder, deleteOrder, addInvoice } = useData();
 
   const customerNames = customers.map((c) => c.name);
-  const productNames = allProducts.map((p) => p.name);
+
+  // Merge catalog names with inventory product names (catalog first, deduplicated)
+  const allProductNames = [
+    ...Object.keys(CATALOG),
+    ...allProducts.map(p => p.name).filter(n => !(n in CATALOG)),
+  ];
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -60,8 +72,11 @@ const Orders = () => {
   const [formStatus, setFormStatus] = useState("Pending");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [lineItems, setLineItems] = useState<LineItem[]>([newLineItem()]);
+  const [discountPct, setDiscountPct] = useState("");
 
-  const grandTotal = useMemo(() => calcTotal(lineItems), [lineItems]);
+  const subtotal   = useMemo(() => calcSubtotal(lineItems), [lineItems]);
+  const discountAmt = useMemo(() => subtotal * (parseFloat(discountPct) || 0) / 100, [subtotal, discountPct]);
+  const grandTotal  = useMemo(() => subtotal - discountAmt, [subtotal, discountAmt]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -69,6 +84,7 @@ const Orders = () => {
     setFormStatus("Pending");
     setFormDate(new Date().toISOString().split("T")[0]);
     setLineItems([newLineItem()]);
+    setDiscountPct("");
     setIsDialogOpen(true);
   };
 
@@ -84,6 +100,7 @@ const Orders = () => {
         ? order.lineItems
         : [{ id: "legacy", product: order.products, qty: 1, unitPrice: order.total }]
     );
+    setDiscountPct("");
     setIsDialogOpen(true);
   };
 
@@ -94,6 +111,13 @@ const Orders = () => {
     setLineItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
+        // Auto-fill unit price from catalog when product is selected
+        if (field === "product") {
+          const catalogPrice = CATALOG[value];
+          return catalogPrice !== undefined
+            ? { ...item, product: value, unitPrice: catalogPrice }
+            : { ...item, product: value };
+        }
         if (field === "qty" || field === "unitPrice") {
           const num = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
           return { ...item, [field]: num };
@@ -111,8 +135,8 @@ const Orders = () => {
     if (!formCustomer.trim()) { toast.error("Select a customer"); return; }
     const validItems = lineItems.filter((i) => i.product.trim());
     if (validItems.length === 0) { toast.error("Add at least one item"); return; }
-    const total = calcTotal(validItems);
     const products = lineItemsToString(validItems);
+    const total = grandTotal; // save the discounted total
 
     if (editingId) {
       updateOrder(editingId, { customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
@@ -145,6 +169,15 @@ const Orders = () => {
   const [invoiceSource, setInvoiceSource] = useState<(typeof orders)[0] | null>(null);
   const [invDueDate, setInvDueDate] = useState("");
   const [invStatus, setInvStatus] = useState("Pending");
+  const [invDiscountPct, setInvDiscountPct] = useState("");
+
+  const invSubtotal    = useMemo(() => invoiceSource ? calcSubtotal(invoiceSource.lineItems || []) : 0, [invoiceSource]);
+  const invDiscountAmt = useMemo(() => invSubtotal * (parseFloat(invDiscountPct) || 0) / 100, [invSubtotal, invDiscountPct]);
+  const invTotal       = useMemo(() => {
+    // If source has lineItems, recalculate with discount; else use stored total
+    if (invoiceSource?.lineItems?.length) return invSubtotal - invDiscountAmt;
+    return invoiceSource?.total ?? 0;
+  }, [invoiceSource, invSubtotal, invDiscountAmt]);
 
   const openIssueInvoice = (order: (typeof orders)[0]) => {
     setInvoiceSource(order);
@@ -152,6 +185,7 @@ const Orders = () => {
     due.setDate(due.getDate() + 30);
     setInvDueDate(due.toISOString().split("T")[0]);
     setInvStatus("Pending");
+    setInvDiscountPct("");
     setIsInvoiceOpen(true);
   };
 
@@ -161,21 +195,21 @@ const Orders = () => {
       customer: invoiceSource.customer,
       date: invoiceSource.date,
       dueDate: invDueDate,
-      amount: invoiceSource.total,
+      amount: invTotal,
       status: invStatus,
     };
     addInvoice(invoiceData);
 
     if (downloadNow) {
-      // We need a temp ID to download — use a generated one
-      const tempId = `INV-${new Date().getFullYear()}-DRAFT`;
+      const tempId = `INV-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase().slice(-4)}`;
       exportSingleInvoicePDF(
         { ...invoiceData, id: tempId },
-        invoiceSource.lineItems
+        invoiceSource.lineItems,
+        parseFloat(invDiscountPct) || 0
       );
       toast.success("Invoice created and PDF downloaded!");
     } else {
-      toast.success("Invoice created and saved to Invoices page");
+      toast.success("Invoice saved to Invoices page");
     }
     setIsInvoiceOpen(false);
   };
@@ -333,9 +367,9 @@ const Orders = () => {
               </div>
 
               {/* Header row */}
-              <div className="grid grid-cols-[30px_1fr_90px_100px_100px_32px] gap-2 mb-1 text-xs font-medium text-muted-foreground px-1">
+              <div className="grid grid-cols-[30px_1fr_90px_110px_100px_32px] gap-2 mb-1 text-xs font-medium text-muted-foreground px-1">
                 <span>#</span>
-                <span>Product / Item</span>
+                <span>Product</span>
                 <span>Qty</span>
                 <span>Unit Price (Rs.)</span>
                 <span className="text-right">Line Total</span>
@@ -345,40 +379,50 @@ const Orders = () => {
               <div className="space-y-2">
                 {lineItems.map((item, idx) => (
                   <div key={item.id}
-                    className="grid grid-cols-[30px_1fr_90px_100px_100px_32px] gap-2 items-center rounded-lg border bg-muted/30 px-2 py-2"
+                    className="grid grid-cols-[30px_1fr_90px_110px_100px_32px] gap-2 items-center rounded-lg border bg-muted/30 px-2 py-2"
                   >
                     <span className="text-xs text-muted-foreground text-center">{idx + 1}</span>
 
-                    {/* Product name */}
-                    {productNames.length > 0 ? (
-                      <Select value={item.product}
-                        onValueChange={(v) => updateItem(item.id, "product", v)}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {productNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input className="h-8 text-sm" placeholder="Item name"
-                        value={item.product}
-                        onChange={(e) => updateItem(item.id, "product", e.target.value)} />
-                    )}
+                    {/* Product dropdown — catalog + inventory merged */}
+                    <Select value={item.product} onValueChange={(v) => updateItem(item.id, "product", v)}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Select product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_header" disabled className="text-xs text-muted-foreground font-semibold">
+                          — Catalog —
+                        </SelectItem>
+                        {Object.entries(CATALOG).map(([name, price]) => (
+                          <SelectItem key={name} value={name}>
+                            {name} <span className="text-muted-foreground ml-1 text-xs">Rs. {price}</span>
+                          </SelectItem>
+                        ))}
+                        {allProducts.filter(p => !(p.name in CATALOG)).length > 0 && (
+                          <>
+                            <SelectItem value="_header2" disabled className="text-xs text-muted-foreground font-semibold">
+                              — Inventory —
+                            </SelectItem>
+                            {allProducts.filter(p => !(p.name in CATALOG)).map(p => (
+                              <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
 
-                    {/* Qty — manual text input, no spinner */}
+                    {/* Qty */}
                     <Input className="h-8 text-sm text-center" placeholder="0"
                       value={item.qty === 0 ? "" : item.qty.toString()}
                       onChange={(e) => updateItem(item.id, "qty", e.target.value)}
                       inputMode="numeric" />
 
-                    {/* Unit price — manual text input */}
-                    <Input className="h-8 text-sm" placeholder="0"
+                    {/* Unit price */}
+                    <Input className="h-8 text-sm" placeholder="0.00"
                       value={item.unitPrice === 0 ? "" : item.unitPrice.toString()}
                       onChange={(e) => updateItem(item.id, "unitPrice", e.target.value)}
                       inputMode="numeric" />
 
-                    {/* Line total — auto */}
+                    {/* Line total */}
                     <span className="text-right text-sm font-semibold">
                       {(item.qty * item.unitPrice).toLocaleString()}
                     </span>
@@ -391,12 +435,38 @@ const Orders = () => {
                 ))}
               </div>
 
-              {/* Grand total */}
-              <div className="mt-3 flex justify-end rounded-lg border bg-primary/5 px-4 py-2">
-                <span className="text-sm text-muted-foreground mr-3">Grand Total:</span>
-                <span className="text-lg font-bold text-primary">
-                  Rs. {grandTotal.toLocaleString()}
-                </span>
+              {/* Discount + Totals */}
+              <div className="mt-4 space-y-2">
+                {/* Discount row */}
+                <div className="flex items-center justify-end gap-3">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Discount %</span>
+                  <Input
+                    className="h-8 w-24 text-sm text-right"
+                    placeholder="0"
+                    value={discountPct}
+                    onChange={(e) => setDiscountPct(e.target.value.replace(/[^0-9.]/g, ""))}
+                    inputMode="numeric"
+                  />
+                </div>
+
+                {/* Totals box */}
+                <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-1.5">
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>Rs. {subtotal.toLocaleString()}</span>
+                  </div>
+                  {discountAmt > 0 && (
+                    <div className="flex justify-between text-sm text-red-500">
+                      <span>Discount ({discountPct}%)</span>
+                      <span>− Rs. {discountAmt.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center border-t pt-1.5">
+                    <span className="text-sm font-semibold text-foreground">Total</span>
+                    <span className="text-lg font-bold text-primary">Rs. {grandTotal.toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -425,7 +495,6 @@ const Orders = () => {
                 <div><span className="text-muted-foreground">Total</span><p className="font-bold text-primary mt-0.5">Rs. {viewingOrder.total.toLocaleString()}</p></div>
               </div>
 
-              {/* Line items table */}
               {viewingOrder.lineItems && viewingOrder.lineItems.length > 0 && (
                 <div>
                   <p className="text-sm font-semibold mb-2 text-muted-foreground">ITEMS</p>
@@ -480,11 +549,43 @@ const Orders = () => {
           </DialogHeader>
           {invoiceSource && (
             <div className="space-y-4 py-2">
+              {/* Order summary */}
               <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Order</span><span className="font-medium">{invoiceSource.id}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span className="font-medium">{invoiceSource.customer}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Issue Date</span><span className="font-medium">{invoiceSource.date}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-bold text-primary">Rs. {invoiceSource.total.toLocaleString()}</span></div>
+              </div>
+
+              {/* Discount field */}
+              <div className="grid gap-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <Tag className="h-3.5 w-3.5" /> Discount (%)
+                </Label>
+                <Input
+                  placeholder="0 — leave blank for no discount"
+                  value={invDiscountPct}
+                  onChange={(e) => setInvDiscountPct(e.target.value.replace(/[^0-9.]/g, ""))}
+                  inputMode="numeric"
+                  className="h-10"
+                />
+              </div>
+
+              {/* Totals breakdown */}
+              <div className="rounded-lg border bg-muted/20 px-4 py-3 space-y-1.5 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>Rs. {invSubtotal.toLocaleString()}</span>
+                </div>
+                {invDiscountAmt > 0 && (
+                  <div className="flex justify-between text-red-500">
+                    <span>Discount ({invDiscountPct}%)</span>
+                    <span>− Rs. {invDiscountAmt.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center font-bold border-t pt-1.5 text-base">
+                  <span>Total</span>
+                  <span className="text-primary">Rs. {invTotal.toLocaleString()}</span>
+                </div>
               </div>
 
               <div className="grid gap-1.5">
