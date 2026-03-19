@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Filter, Pencil, Trash2, Package } from "lucide-react";
+import { Search, Plus, Filter, Pencil, Trash2, Package, PenLine } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -20,6 +20,8 @@ import {
 import { toast } from "sonner";
 import { useData } from "@/contexts/DataContext";
 import { CATALOG, CATALOG_MAP } from "@/lib/catalog";
+
+const CUSTOM_VALUE = "__custom__";
 
 const categories = [
   "Vitamins", "Calcium", "Cough & Cold", "Antibiotics", "Pain Relief",
@@ -42,8 +44,9 @@ const Products = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(emptyProduct);
+  const [isCustomName, setIsCustomName] = useState(false);
 
-  // Extra product names already saved but not in catalog
+  // Extra product names already saved but not in the built-in catalog
   const extraNames = products
     .map((p) => p.name)
     .filter((n) => !(n in CATALOG_MAP));
@@ -60,10 +63,13 @@ const Products = () => {
       if (product) {
         setEditingId(productId);
         setFormData({ name: product.name, category: product.category, stock: product.stock, price: product.price });
+        // If the name isn't in the catalog, show as custom
+        setIsCustomName(!(product.name in CATALOG_MAP));
       }
     } else {
       setEditingId(null);
       setFormData(emptyProduct);
+      setIsCustomName(false);
     }
     setIsDialogOpen(true);
   };
@@ -72,29 +78,36 @@ const Products = () => {
     setIsDialogOpen(false);
     setEditingId(null);
     setFormData(emptyProduct);
+    setIsCustomName(false);
   };
 
-  // When a product name is selected, auto-fill price from catalog
-  const handleNameSelect = (name: string) => {
-    const catalogPrice = CATALOG_MAP[name];
-    setFormData((prev) => ({
-      ...prev,
-      name,
-      price: catalogPrice !== undefined ? catalogPrice : prev.price,
-    }));
+  // When a name is selected from the dropdown
+  const handleNameSelect = (value: string) => {
+    if (value === CUSTOM_VALUE) {
+      setIsCustomName(true);
+      setFormData((prev) => ({ ...prev, name: "", price: 0 }));
+    } else {
+      setIsCustomName(false);
+      const catalogPrice = CATALOG_MAP[value];
+      setFormData((prev) => ({
+        ...prev,
+        name: value,
+        price: catalogPrice !== undefined ? catalogPrice : prev.price,
+      }));
+    }
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.category || formData.price <= 0) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+    if (!formData.name.trim()) { toast.error("Product name is required"); return; }
+    if (!formData.category)    { toast.error("Category is required"); return; }
+    if (formData.price <= 0)   { toast.error("Price must be greater than 0"); return; }
+
     if (editingId != null) {
       updateProduct(editingId, formData);
-      toast.success("Product updated successfully");
+      toast.success("Product updated");
     } else {
       addProduct(formData);
-      toast.success("Product added successfully");
+      toast.success("Product added");
     }
     handleCloseDialog();
   };
@@ -103,6 +116,13 @@ const Products = () => {
     deleteProduct(id);
     toast.success("Product deleted");
   };
+
+  // The value to show in the Select when dialog opens
+  const selectValue = isCustomName
+    ? CUSTOM_VALUE
+    : (formData.name in CATALOG_MAP || extraNames.includes(formData.name))
+      ? formData.name
+      : "";
 
   return (
     <DashboardLayout>
@@ -189,7 +209,7 @@ const Products = () => {
         </CardContent>
       </Card>
 
-      {/* Add/Edit Dialog */}
+      {/* Add / Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -197,12 +217,14 @@ const Products = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
 
-            {/* Product Name — dropdown */}
+            {/* ── Product Name ── */}
             <div className="grid gap-2">
               <Label>Product Name *</Label>
-              <Select value={formData.name} onValueChange={handleNameSelect}>
+
+              {/* Dropdown: catalog + saved extras + "Enter custom" option */}
+              <Select value={selectValue} onValueChange={handleNameSelect}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
+                  <SelectValue placeholder="Select product or enter custom" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -214,19 +236,42 @@ const Products = () => {
                       </SelectItem>
                     ))}
                   </SelectGroup>
+
                   {extraNames.length > 0 && (
                     <SelectGroup>
-                      <SelectLabel>Existing</SelectLabel>
+                      <SelectLabel>Previously Added</SelectLabel>
                       {extraNames.map((n) => (
                         <SelectItem key={n} value={n}>{n}</SelectItem>
                       ))}
                     </SelectGroup>
                   )}
+
+                  {/* Custom entry option */}
+                  <SelectGroup>
+                    <SelectLabel>Other</SelectLabel>
+                    <SelectItem value={CUSTOM_VALUE}>
+                      <span className="flex items-center gap-2">
+                        <PenLine className="h-3.5 w-3.5" />
+                        Enter custom name…
+                      </span>
+                    </SelectItem>
+                  </SelectGroup>
                 </SelectContent>
               </Select>
+
+              {/* Custom name text input — shown when "Enter custom name" is selected */}
+              {isCustomName && (
+                <Input
+                  autoFocus
+                  placeholder="Type product name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="mt-1"
+                />
+              )}
             </div>
 
-            {/* Category */}
+            {/* ── Category ── */}
             <div className="grid gap-2">
               <Label>Category *</Label>
               <Select value={formData.category}
@@ -238,7 +283,7 @@ const Products = () => {
               </Select>
             </div>
 
-            {/* Stock */}
+            {/* ── Stock ── */}
             <div className="grid gap-2">
               <Label>Stock Quantity</Label>
               <Input inputMode="numeric" placeholder="0"
@@ -246,14 +291,20 @@ const Products = () => {
                 onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })} />
             </div>
 
-            {/* Price — auto-filled from catalog, editable */}
+            {/* ── Price — auto-filled from catalog, always editable ── */}
             <div className="grid gap-2">
               <Label>Price (Rs.) *</Label>
               <Input inputMode="numeric" placeholder="0.00"
                 value={formData.price === 0 ? "" : formData.price.toString()}
                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} />
+              {formData.name in CATALOG_MAP && (
+                <p className="text-xs text-muted-foreground">
+                  Catalog price: Rs. {CATALOG_MAP[formData.name]} — edit above to override
+                </p>
+              )}
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDialog}>Cancel</Button>
             <Button onClick={handleSave}>{editingId != null ? "Update" : "Add"} Product</Button>
