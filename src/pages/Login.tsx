@@ -47,7 +47,7 @@ export default function Login() {
     <div className="flex min-h-screen">
       {/* ── Left Panel: Branding ──────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between bg-[#0f2e1a] p-12 relative overflow-hidden">
-        {/* subtle texture */}
+        {/* subtle dot texture */}
         <div className="absolute inset-0 opacity-[0.04]"
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
 
@@ -55,13 +55,14 @@ export default function Login() {
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600" />
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-16">
-            <div className="h-10 w-10 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center p-1.5">
+          {/* Logo — enlarged */}
+          <div className="flex items-center gap-5 mb-16">
+            <div className="h-20 w-20 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center p-2.5">
               <img src={logo} alt="Biozentra" className="h-full w-full object-contain" />
             </div>
             <div>
-              <p className="text-white font-bold tracking-wide text-sm">BIOZENTRA</p>
-              <p className="text-emerald-400/70 text-xs">Healthcare Management</p>
+              <p className="text-white font-bold tracking-widest text-xl">BIOZENTRA</p>
+              <p className="text-emerald-400/80 text-sm mt-0.5">Healthcare Management</p>
             </div>
           </div>
 
@@ -81,30 +82,31 @@ export default function Login() {
           </motion.div>
         </div>
 
+        {/* Bottom: copyright only — feature cards removed */}
         <div className="relative z-10">
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            {[
-              { label: "Orders", desc: "Track & manage" },
-              { label: "Invoices", desc: "PDF export" },
-              { label: "Analytics", desc: "Live insights" },
-            ].map((item) => (
-              <div key={item.label} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                <p className="text-white text-sm font-semibold">{item.label}</p>
-                <p className="text-slate-400 text-xs mt-0.5">{item.desc}</p>
-              </div>
-            ))}
-          </div>
           <p className="text-slate-600 text-xs">© {new Date().getFullYear()} Biozentra Healthcare. All rights reserved.</p>
         </div>
       </div>
 
       {/* ── Right Panel: Form ─────────────────────────────────────────────── */}
-      <div className="flex flex-1 items-center justify-center bg-white dark:bg-slate-950 p-8">
+      <div className="flex flex-1 items-center justify-center bg-white dark:bg-slate-950 p-8 relative overflow-hidden">
+
+        {/* Faded watermark logo */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <img
+            src={logo}
+            alt=""
+            aria-hidden="true"
+            className="w-[70%] max-w-[420px] object-contain select-none"
+            style={{ opacity: 0.045, filter: "grayscale(100%)" }}
+          />
+        </div>
+
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
-          className="w-full max-w-[400px]"
+          className="w-full max-w-[400px] relative z-10"
         >
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
