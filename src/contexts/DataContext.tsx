@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
-// Product types
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export interface Product {
   id: number;
   name: string;
@@ -10,7 +12,6 @@ export interface Product {
   status: string;
 }
 
-// Line item for orders
 export interface LineItem {
   id: string;
   product: string;
@@ -18,7 +19,6 @@ export interface LineItem {
   unitPrice: number;
 }
 
-// Order types
 export interface Order {
   id: string;
   customer: string;
@@ -29,7 +29,6 @@ export interface Order {
   lineItems?: LineItem[];
 }
 
-// Customer types
 export interface Customer {
   id: number;
   name: string;
@@ -41,7 +40,6 @@ export interface Customer {
   totalSpent: number;
 }
 
-// Invoice types
 export interface Invoice {
   id: string;
   customer: string;
@@ -56,6 +54,7 @@ interface DataContextType {
   orders: Order[];
   customers: Customer[];
   invoices: Invoice[];
+  isLoading: boolean;
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
@@ -74,7 +73,7 @@ interface DataContextType {
   deleteInvoice: (id: string) => void;
 }
 
-const DataContext = createContext<DataContextType | undefined>(undefined);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export const getProductStatus = (stock: number): string => {
   if (stock === 0) return "Out of Stock";
@@ -92,139 +91,281 @@ const STORAGE_KEYS = {
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
     const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
+    return stored ? (JSON.parse(stored) as T) : fallback;
   } catch {
     return fallback;
   }
 }
 
-const generateOrderId = (existingOrders: Order[]): string => {
-  const year = new Date().getFullYear();
-  const yearOrders = existingOrders.filter(o => o.id.includes(`ORD-${year}`));
-  const maxNum = yearOrders.length > 0
-    ? Math.max(...yearOrders.map(o => parseInt(o.id.split('-')[2]) || 0))
-    : 0;
-  return `ORD-${year}-${String(maxNum + 1).padStart(3, '0')}`;
-};
+// Map DB rows (snake_case) → TypeScript models (camelCase)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapOrder(row: any): Order {
+  return {
+    id: row.id,
+    customer: row.customer,
+    products: row.products || "",
+    total: row.total || 0,
+    status: row.status || "Pending",
+    date: row.date || "",
+    lineItems: row.line_items ?? undefined,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCustomer(row: any): Customer {
+  return {
+    id: row.id,
+    name: row.name,
+    contact: row.contact || "",
+    email: row.email || "",
+    phone: row.phone || "",
+    location: row.location || "",
+    orders: row.orders || 0,
+    totalSpent: row.total_spent || 0,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapInvoice(row: any): Invoice {
+  return {
+    id: row.id,
+    customer: row.customer,
+    date: row.date || "",
+    dueDate: row.due_date || "",
+    amount: row.amount || 0,
+    status: row.status || "Pending",
+  };
+}
 
-const generateInvoiceId = (existingInvoices: Invoice[]): string => {
+function makeOrderId(existing: Order[]): string {
   const year = new Date().getFullYear();
-  const yearInvoices = existingInvoices.filter(i => i.id.includes(`INV-${year}`));
-  const maxNum = yearInvoices.length > 0
-    ? Math.max(...yearInvoices.map(i => parseInt(i.id.split('-')[2]) || 0))
-    : 0;
-  return `INV-${year}-${String(maxNum + 1).padStart(3, '0')}`;
-};
+  if (isSupabaseConfigured) {
+    // Use timestamp suffix to avoid collisions across multiple users
+    return `ORD-${year}-${Date.now().toString(36).toUpperCase().slice(-5)}`;
+  }
+  const max = existing.filter(o => o.id.startsWith(`ORD-${year}`))
+    .reduce((m, o) => Math.max(m, parseInt(o.id.split("-")[2]) || 0), 0);
+  return `ORD-${year}-${String(max + 1).padStart(3, "0")}`;
+}
+
+function makeInvoiceId(existing: Invoice[]): string {
+  const year = new Date().getFullYear();
+  if (isSupabaseConfigured) {
+    return `INV-${year}-${Date.now().toString(36).toUpperCase().slice(-5)}`;
+  }
+  const max = existing.filter(i => i.id.startsWith(`INV-${year}`))
+    .reduce((m, i) => Math.max(m, parseInt(i.id.split("-")[2]) || 0), 0);
+  return `INV-${year}-${String(max + 1).padStart(3, "0")}`;
+}
+
+// ─── Context ──────────────────────────────────────────────────────────────────
+
+const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(() => loadFromStorage(STORAGE_KEYS.products, []));
-  const [orders, setOrders] = useState<Order[]>(() => loadFromStorage(STORAGE_KEYS.orders, []));
-  const [customers, setCustomers] = useState<Customer[]>(() => loadFromStorage(STORAGE_KEYS.customers, []));
-  const [invoices, setInvoices] = useState<Invoice[]>(() => loadFromStorage(STORAGE_KEYS.invoices, []));
+  // In Supabase mode start empty; data arrives from the first fetch.
+  // In localStorage mode, seed from storage immediately.
+  const [products, setProducts] = useState<Product[]>(() =>
+    isSupabaseConfigured ? [] : loadFromStorage(STORAGE_KEYS.products, [])
+  );
+  const [orders, setOrders] = useState<Order[]>(() =>
+    isSupabaseConfigured ? [] : loadFromStorage(STORAGE_KEYS.orders, [])
+  );
+  const [customers, setCustomers] = useState<Customer[]>(() =>
+    isSupabaseConfigured ? [] : loadFromStorage(STORAGE_KEYS.customers, [])
+  );
+  const [invoices, setInvoices] = useState<Invoice[]>(() =>
+    isSupabaseConfigured ? [] : loadFromStorage(STORAGE_KEYS.invoices, [])
+  );
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.customers, JSON.stringify(customers)); }, [customers]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.invoices, JSON.stringify(invoices)); }, [invoices]);
+  // ── Supabase: initial fetch + realtime subscriptions ──────────────────────
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
 
-  // Product CRUD
-  const addProduct = (product: Omit<Product, "id" | "status">) => {
-    const newProduct: Product = {
-      ...product,
-      id: products.length > 0 ? Math.max(...products.map((p) => p.id)) + 1 : 1,
-      status: getProductStatus(product.stock),
+    const fetchAll = async () => {
+      setIsLoading(true);
+      const [p, o, c, inv] = await Promise.all([
+        supabase.from("products").select("*").order("id"),
+        supabase.from("orders").select("*").order("created_at", { ascending: false }),
+        supabase.from("customers").select("*").order("id"),
+        supabase.from("invoices").select("*").order("created_at", { ascending: false }),
+      ]);
+      if (p.data) setProducts(p.data as Product[]);
+      if (o.data) setOrders(o.data.map(mapOrder));
+      if (c.data) setCustomers(c.data.map(mapCustomer));
+      if (inv.data) setInvoices(inv.data.map(mapInvoice));
+      setIsLoading(false);
     };
-    setProducts((prev) => [...prev, newProduct]);
+
+    fetchAll();
+
+    // Re-fetch whenever any table changes (works for all users in real time)
+    const channel = supabase
+      .channel("biozentra-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, fetchAll)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // ── localStorage persistence (only when NOT using Supabase) ───────────────
+  useEffect(() => { if (!isSupabaseConfigured) localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products)); }, [products]);
+  useEffect(() => { if (!isSupabaseConfigured) localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders)); }, [orders]);
+  useEffect(() => { if (!isSupabaseConfigured) localStorage.setItem(STORAGE_KEYS.customers, JSON.stringify(customers)); }, [customers]);
+  useEffect(() => { if (!isSupabaseConfigured) localStorage.setItem(STORAGE_KEYS.invoices, JSON.stringify(invoices)); }, [invoices]);
+
+  // ─── PRODUCT CRUD ──────────────────────────────────────────────────────────
+  const addProduct = (product: Omit<Product, "id" | "status">) => {
+    const status = getProductStatus(product.stock);
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("products")
+        .insert([{ name: product.name, category: product.category, stock: product.stock, price: product.price, status }])
+        .then(({ error }) => { if (error) console.error("addProduct:", error); });
+    } else {
+      setProducts(prev => {
+        const newItem: Product = { ...product, status, id: prev.length > 0 ? Math.max(...prev.map(p => p.id)) + 1 : 1 };
+        return [...prev, newItem];
+      });
+    }
   };
 
   const updateProduct = (id: number, product: Partial<Product>) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const updated = { ...p, ...product };
-          if (product.stock !== undefined) {
-            updated.status = getProductStatus(product.stock);
-          }
-          return updated;
-        }
-        return p;
-      })
-    );
+    const extra = product.stock !== undefined ? { status: getProductStatus(product.stock) } : {};
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("products").update({ ...product, ...extra }).eq("id", id)
+        .then(({ error }) => { if (error) console.error("updateProduct:", error); });
+    } else {
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, ...product, ...extra } : p));
+    }
   };
 
   const deleteProduct = (id: number) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("products").delete().eq("id", id)
+        .then(({ error }) => { if (error) console.error("deleteProduct:", error); });
+    } else {
+      setProducts(prev => prev.filter(p => p.id !== id));
+    }
   };
 
-  // Order CRUD
+  // ─── ORDER CRUD ────────────────────────────────────────────────────────────
   const addOrder = (order: Omit<Order, "id">) => {
-    setOrders((prev) => {
-      const newOrder: Order = { ...order, id: generateOrderId(prev) };
-      return [newOrder, ...prev];
-    });
+    const id = makeOrderId(orders);
+    const newOrder: Order = { ...order, id };
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("orders")
+        .insert([{ id, customer: order.customer, products: order.products, total: order.total, status: order.status, date: order.date, line_items: order.lineItems ?? null }])
+        .then(({ error }) => { if (error) console.error("addOrder:", error); });
+    } else {
+      setOrders(prev => [newOrder, ...prev]);
+    }
   };
 
   const updateOrder = (id: string, order: Partial<Order>) => {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...order } : o)));
+    const { lineItems, ...rest } = order;
+    const dbUpdate = { ...rest, ...(lineItems !== undefined ? { line_items: lineItems } : {}) };
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("orders").update(dbUpdate).eq("id", id)
+        .then(({ error }) => { if (error) console.error("updateOrder:", error); });
+    } else {
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...order } : o));
+    }
   };
 
   const deleteOrder = (id: string) => {
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("orders").delete().eq("id", id)
+        .then(({ error }) => { if (error) console.error("deleteOrder:", error); });
+    } else {
+      setOrders(prev => prev.filter(o => o.id !== id));
+    }
   };
 
-  // Customer CRUD
+  // ─── CUSTOMER CRUD ─────────────────────────────────────────────────────────
   const addCustomer = (customer: Omit<Customer, "id">) => {
-    const newCustomer: Customer = {
-      ...customer,
-      id: customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1,
-    };
-    setCustomers((prev) => [...prev, newCustomer]);
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("customers")
+        .insert([{ name: customer.name, contact: customer.contact, email: customer.email, phone: customer.phone, location: customer.location, orders: customer.orders || 0, total_spent: customer.totalSpent || 0 }])
+        .then(({ error }) => { if (error) console.error("addCustomer:", error); });
+    } else {
+      setCustomers(prev => {
+        const newItem: Customer = { ...customer, id: prev.length > 0 ? Math.max(...prev.map(c => c.id)) + 1 : 1 };
+        return [...prev, newItem];
+      });
+    }
   };
 
   const updateCustomer = (id: number, customer: Partial<Customer>) => {
-    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...customer } : c)));
+    const { totalSpent, ...rest } = customer;
+    const dbUpdate = { ...rest, ...(totalSpent !== undefined ? { total_spent: totalSpent } : {}) };
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("customers").update(dbUpdate).eq("id", id)
+        .then(({ error }) => { if (error) console.error("updateCustomer:", error); });
+    } else {
+      setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...customer } : c));
+    }
   };
 
   const deleteCustomer = (id: number) => {
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("customers").delete().eq("id", id)
+        .then(({ error }) => { if (error) console.error("deleteCustomer:", error); });
+    } else {
+      setCustomers(prev => prev.filter(c => c.id !== id));
+    }
   };
 
-  // Invoice CRUD
+  // ─── INVOICE CRUD ──────────────────────────────────────────────────────────
   const addInvoice = (invoice: Omit<Invoice, "id">) => {
-    setInvoices((prev) => {
-      const newInvoice: Invoice = { ...invoice, id: generateInvoiceId(prev) };
-      return [newInvoice, ...prev];
-    });
+    const id = makeInvoiceId(invoices);
+    const newInvoice: Invoice = { ...invoice, id };
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("invoices")
+        .insert([{ id, customer: invoice.customer, date: invoice.date, due_date: invoice.dueDate, amount: invoice.amount, status: invoice.status }])
+        .then(({ error }) => { if (error) console.error("addInvoice:", error); });
+    } else {
+      setInvoices(prev => [newInvoice, ...prev]);
+    }
   };
 
   const updateInvoice = (id: string, invoice: Partial<Invoice>) => {
-    setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, ...invoice } : i)));
+    const { dueDate, ...rest } = invoice;
+    const dbUpdate = { ...rest, ...(dueDate !== undefined ? { due_date: dueDate } : {}) };
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("invoices").update(dbUpdate).eq("id", id)
+        .then(({ error }) => { if (error) console.error("updateInvoice:", error); });
+    } else {
+      setInvoices(prev => prev.map(i => i.id === id ? { ...i, ...invoice } : i));
+    }
   };
 
   const deleteInvoice = (id: string) => {
-    setInvoices((prev) => prev.filter((i) => i.id !== id));
+    if (isSupabaseConfigured && supabase) {
+      supabase.from("invoices").delete().eq("id", id)
+        .then(({ error }) => { if (error) console.error("deleteInvoice:", error); });
+    } else {
+      setInvoices(prev => prev.filter(i => i.id !== id));
+    }
   };
 
   return (
-    <DataContext.Provider
-      value={{
-        products, orders, customers, invoices,
-        setProducts, setOrders, setCustomers, setInvoices,
-        addProduct, updateProduct, deleteProduct,
-        addOrder, updateOrder, deleteOrder,
-        addCustomer, updateCustomer, deleteCustomer,
-        addInvoice, updateInvoice, deleteInvoice,
-      }}
-    >
+    <DataContext.Provider value={{
+      products, orders, customers, invoices, isLoading,
+      setProducts, setOrders, setCustomers, setInvoices,
+      addProduct, updateProduct, deleteProduct,
+      addOrder, updateOrder, deleteOrder,
+      addCustomer, updateCustomer, deleteCustomer,
+      addInvoice, updateInvoice, deleteInvoice,
+    }}>
       {children}
     </DataContext.Provider>
   );
 }
 
 export const useData = () => {
-  const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error("useData must be used within a DataProvider");
-  }
-  return context;
+  const ctx = useContext(DataContext);
+  if (!ctx) throw new Error("useData must be used within a DataProvider");
+  return ctx;
 };
