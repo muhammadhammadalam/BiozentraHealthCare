@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,169 +6,218 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Filter, Eye, Pencil, Trash2, ShoppingCart } from "lucide-react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Search, Plus, Eye, Pencil, Trash2, ShoppingCart, FileText,
+  PlusCircle, MinusCircle, Download,
+} from "lucide-react";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useData } from "@/contexts/DataContext";
+import { useData, LineItem } from "@/contexts/DataContext";
+import { exportSingleInvoicePDF } from "@/utils/pdfExport";
 
+// ─── helpers ──────────────────────────────────────────────────────────────────
 const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   Delivered: "default",
   Processing: "secondary",
   Pending: "outline",
   Shipped: "default",
 };
-
 const statusOptions = ["Pending", "Processing", "Shipped", "Delivered"];
 
-interface OrderFormData {
-  customer: string;
-  products: string;
-  total: number;
-  status: string;
-  date: string;
+function newLineItem(): LineItem {
+  return { id: Date.now().toString(), product: "", qty: 1, unitPrice: 0 };
 }
 
-const emptyOrder: OrderFormData = {
-  customer: "",
-  products: "",
-  total: 0,
-  status: "Pending",
-  date: new Date().toISOString().split("T")[0],
-};
+function lineItemsToString(items: LineItem[]) {
+  return items.filter(i => i.product).map(i => `${i.product} x${i.qty}`).join(", ");
+}
 
+function calcTotal(items: LineItem[]) {
+  return items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+}
+
+// ─── component ────────────────────────────────────────────────────────────────
 const Orders = () => {
-  const { orders, customers, addOrder, updateOrder, deleteOrder } = useData();
+  const { orders, customers, products: allProducts, addOrder, updateOrder, deleteOrder, addInvoice } = useData();
+
+  const customerNames = customers.map((c) => c.name);
+  const productNames = allProducts.map((p) => p.name);
 
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ── create/edit dialog ────────────────────────────────────────────────────
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [viewingOrder, setViewingOrder] = useState<(typeof orders)[0] | null>(null);
-  const [formData, setFormData] = useState<OrderFormData>(emptyOrder);
+  const [formCustomer, setFormCustomer] = useState("");
+  const [formStatus, setFormStatus] = useState("Pending");
+  const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([newLineItem()]);
 
-  const filteredOrders = orders.filter(
-    (order) =>
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.products.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const grandTotal = useMemo(() => calcTotal(lineItems), [lineItems]);
 
-  const handleOpenDialog = (orderId?: string) => {
-    if (orderId) {
-      const order = orders.find((o) => o.id === orderId);
-      if (order) {
-        setEditingId(orderId);
-        setFormData({
-          customer: order.customer,
-          products: order.products,
-          total: order.total,
-          status: order.status,
-          date: order.date,
-        });
-      }
-    } else {
-      setEditingId(null);
-      setFormData(emptyOrder);
-    }
+  const openCreate = () => {
+    setEditingId(null);
+    setFormCustomer("");
+    setFormStatus("Pending");
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setLineItems([newLineItem()]);
     setIsDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setEditingId(null);
-    setFormData(emptyOrder);
+  const openEdit = (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    setEditingId(orderId);
+    setFormCustomer(order.customer);
+    setFormStatus(order.status);
+    setFormDate(order.date);
+    setLineItems(
+      order.lineItems && order.lineItems.length > 0
+        ? order.lineItems
+        : [{ id: "legacy", product: order.products, qty: 1, unitPrice: order.total }]
+    );
+    setIsDialogOpen(true);
   };
 
-  const handleViewOrder = (order: (typeof orders)[0]) => {
-    setViewingOrder(order);
-    setIsViewDialogOpen(true);
+  const closeDialog = () => { setIsDialogOpen(false); setEditingId(null); };
+
+  // line item helpers
+  const updateItem = (id: string, field: keyof LineItem, value: string) => {
+    setLineItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (field === "qty" || field === "unitPrice") {
+          const num = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
+          return { ...item, [field]: num };
+        }
+        return { ...item, [field]: value };
+      })
+    );
   };
+
+  const addItem = () => setLineItems((prev) => [...prev, newLineItem()]);
+  const removeItem = (id: string) =>
+    setLineItems((prev) => (prev.length > 1 ? prev.filter((i) => i.id !== id) : prev));
 
   const handleSave = () => {
-    if (!formData.customer || !formData.products || formData.total <= 0) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+    if (!formCustomer.trim()) { toast.error("Select a customer"); return; }
+    const validItems = lineItems.filter((i) => i.product.trim());
+    if (validItems.length === 0) { toast.error("Add at least one item"); return; }
+    const total = calcTotal(validItems);
+    const products = lineItemsToString(validItems);
+
     if (editingId) {
-      updateOrder(editingId, formData);
-      toast.success("Order updated successfully");
+      updateOrder(editingId, { customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+      toast.success("Order updated");
     } else {
-      addOrder(formData);
-      toast.success("Order created successfully");
+      addOrder({ customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+      toast.success("Order created");
     }
-    handleCloseDialog();
+    closeDialog();
   };
 
   const handleDelete = (id: string) => {
-    deleteOrder(id);
-    toast.success("Order deleted");
+    if (window.confirm("Delete this order?")) {
+      deleteOrder(id);
+      toast.success("Order deleted");
+    }
   };
 
-  const customerNames = customers.map((c) => c.name);
+  // ── view dialog ───────────────────────────────────────────────────────────
+  const [viewingOrder, setViewingOrder] = useState<(typeof orders)[0] | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
 
+  const openView = (order: (typeof orders)[0]) => {
+    setViewingOrder(order);
+    setIsViewOpen(true);
+  };
+
+  // ── issue invoice dialog ──────────────────────────────────────────────────
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [invoiceSource, setInvoiceSource] = useState<(typeof orders)[0] | null>(null);
+  const [invDueDate, setInvDueDate] = useState("");
+  const [invStatus, setInvStatus] = useState("Pending");
+
+  const openIssueInvoice = (order: (typeof orders)[0]) => {
+    setInvoiceSource(order);
+    const due = new Date();
+    due.setDate(due.getDate() + 30);
+    setInvDueDate(due.toISOString().split("T")[0]);
+    setInvStatus("Pending");
+    setIsInvoiceOpen(true);
+  };
+
+  const handleIssueInvoice = (downloadNow: boolean) => {
+    if (!invoiceSource) return;
+    const invoiceData = {
+      customer: invoiceSource.customer,
+      date: invoiceSource.date,
+      dueDate: invDueDate,
+      amount: invoiceSource.total,
+      status: invStatus,
+    };
+    addInvoice(invoiceData);
+
+    if (downloadNow) {
+      // We need a temp ID to download — use a generated one
+      const tempId = `INV-${new Date().getFullYear()}-DRAFT`;
+      exportSingleInvoicePDF(
+        { ...invoiceData, id: tempId },
+        invoiceSource.lineItems
+      );
+      toast.success("Invoice created and PDF downloaded!");
+    } else {
+      toast.success("Invoice created and saved to Invoices page");
+    }
+    setIsInvoiceOpen(false);
+  };
+
+  // ── filter ────────────────────────────────────────────────────────────────
+  const filtered = orders.filter(
+    (o) =>
+      o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.products.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Orders</h1>
-          <p className="mt-1 text-muted-foreground">Track and manage customer orders</p>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="flex gap-3"
-        >
-          <Button size="sm" className="gap-2" onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4" /> New Order
-          </Button>
-        </motion.div>
+          <p className="mt-1 text-muted-foreground">Manage and track all orders</p>
+        </div>
+        <Button className="gap-2" onClick={openCreate}>
+          <Plus className="h-4 w-4" /> New Order
+        </Button>
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>All Orders ({filteredOrders.length})</CardTitle>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search orders..."
-                  className="pl-9 w-64"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
-            </div>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5" />
+            All Orders ({orders.length})
+          </CardTitle>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search orders..." className="pl-9" value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
         </CardHeader>
+
         <CardContent>
-          {filteredOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <ShoppingCart className="h-12 w-12 opacity-30 mb-3" />
+          {filtered.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground">
+              <ShoppingCart className="mx-auto mb-3 h-12 w-12 opacity-20" />
               <p className="font-medium">No orders yet</p>
               <p className="text-sm mt-1">Click "New Order" to create your first order.</p>
             </div>
@@ -178,7 +227,7 @@ const Orders = () => {
                 <TableRow>
                   <TableHead>Order ID</TableHead>
                   <TableHead>Customer</TableHead>
-                  <TableHead>Products</TableHead>
+                  <TableHead>Items</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
@@ -186,45 +235,41 @@ const Orders = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order, i) => (
+                {filtered.map((order, i) => (
                   <motion.tr
                     key={order.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
+                    transition={{ delay: i * 0.04 }}
                     className="border-b transition-colors hover:bg-muted/50"
                   >
                     <TableCell className="font-medium">{order.id}</TableCell>
                     <TableCell>{order.customer}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{order.products}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">
+                      {order.products || "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
                       Rs. {order.total.toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusColors[order.status]}>{order.status}</Badge>
+                      <Badge variant={statusColors[order.status] ?? "outline"}>{order.status}</Badge>
                     </TableCell>
-                    <TableCell>{order.date}</TableCell>
+                    <TableCell className="text-muted-foreground">{order.date}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewOrder(order)}
-                        >
+                        <Button variant="ghost" size="icon" title="View" onClick={() => openView(order)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(order.id)}
-                        >
+                        <Button variant="ghost" size="icon" title="Edit" onClick={() => openEdit(order.id)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(order.id)}
+                        <Button variant="ghost" size="icon" title="Issue Invoice"
+                          onClick={() => openIssueInvoice(order)}
+                          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                         >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Delete" onClick={() => handleDelete(order.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -237,135 +282,236 @@ const Orders = () => {
         </CardContent>
       </Card>
 
-      {/* Add/Edit Dialog */}
+      {/* ── Create / Edit Order Dialog ───────────────────────────────────── */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Order" : "Create New Order"}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="customer">Customer *</Label>
+
+          <div className="space-y-4 py-2">
+            {/* Customer */}
+            <div className="grid gap-1.5">
+              <Label>Customer *</Label>
               {customerNames.length > 0 ? (
-                <Select
-                  value={formData.customer}
-                  onValueChange={(value) => setFormData({ ...formData, customer: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
+                <Select value={formCustomer} onValueChange={setFormCustomer}>
+                  <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
                   <SelectContent>
-                    {customerNames.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
+                    {customerNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
               ) : (
-                <Input
-                  value={formData.customer}
-                  onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-                  placeholder="Enter customer name (add customers first)"
-                />
+                <Input value={formCustomer} onChange={(e) => setFormCustomer(e.target.value)}
+                  placeholder="Customer name (add customers first)" />
               )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="products">Products *</Label>
-              <Input
-                id="products"
-                value={formData.products}
-                onChange={(e) => setFormData({ ...formData, products: e.target.value })}
-                placeholder="e.g. Multivitzen Syrup x20, Kalzen x10"
-              />
+
+            {/* Date + Status */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-1.5">
+                <Label>Date</Label>
+                <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Status</Label>
+                <Select value={formStatus} onValueChange={setFormStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="total">Total Amount (Rs.) *</Label>
-              <Input
-                id="total"
-                type="number"
-                min="0"
-                value={formData.total}
-                onChange={(e) =>
-                  setFormData({ ...formData, total: parseInt(e.target.value) || 0 })
-                }
-                placeholder="Enter total amount"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              />
+
+            {/* Line Items */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <Label className="text-base font-semibold">Order Items *</Label>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={addItem}>
+                  <PlusCircle className="h-4 w-4" /> Add Item
+                </Button>
+              </div>
+
+              {/* Header row */}
+              <div className="grid grid-cols-[30px_1fr_90px_100px_100px_32px] gap-2 mb-1 text-xs font-medium text-muted-foreground px-1">
+                <span>#</span>
+                <span>Product / Item</span>
+                <span>Qty</span>
+                <span>Unit Price (Rs.)</span>
+                <span className="text-right">Line Total</span>
+                <span />
+              </div>
+
+              <div className="space-y-2">
+                {lineItems.map((item, idx) => (
+                  <div key={item.id}
+                    className="grid grid-cols-[30px_1fr_90px_100px_100px_32px] gap-2 items-center rounded-lg border bg-muted/30 px-2 py-2"
+                  >
+                    <span className="text-xs text-muted-foreground text-center">{idx + 1}</span>
+
+                    {/* Product name */}
+                    {productNames.length > 0 ? (
+                      <Select value={item.product}
+                        onValueChange={(v) => updateItem(item.id, "product", v)}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input className="h-8 text-sm" placeholder="Item name"
+                        value={item.product}
+                        onChange={(e) => updateItem(item.id, "product", e.target.value)} />
+                    )}
+
+                    {/* Qty — manual text input, no spinner */}
+                    <Input className="h-8 text-sm text-center" placeholder="0"
+                      value={item.qty === 0 ? "" : item.qty.toString()}
+                      onChange={(e) => updateItem(item.id, "qty", e.target.value)}
+                      inputMode="numeric" />
+
+                    {/* Unit price — manual text input */}
+                    <Input className="h-8 text-sm" placeholder="0"
+                      value={item.unitPrice === 0 ? "" : item.unitPrice.toString()}
+                      onChange={(e) => updateItem(item.id, "unitPrice", e.target.value)}
+                      inputMode="numeric" />
+
+                    {/* Line total — auto */}
+                    <span className="text-right text-sm font-semibold">
+                      {(item.qty * item.unitPrice).toLocaleString()}
+                    </span>
+
+                    <button type="button" onClick={() => removeItem(item.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors">
+                      <MinusCircle className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Grand total */}
+              <div className="mt-3 flex justify-end rounded-lg border bg-primary/5 px-4 py-2">
+                <span className="text-sm text-muted-foreground mr-3">Grand Total:</span>
+                <span className="text-lg font-bold text-primary">
+                  Rs. {grandTotal.toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>{editingId ? "Update" : "Create"} Order</Button>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button onClick={handleSave}>{editingId ? "Update Order" : "Create Order"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* View Order Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* ── View Order Dialog ─────────────────────────────────────────────── */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Order Details</DialogTitle>
+            <DialogTitle>Order Details — {viewingOrder?.id}</DialogTitle>
           </DialogHeader>
           {viewingOrder && (
-            <div className="space-y-4 py-4">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Order ID</span>
-                <span className="font-medium">{viewingOrder.id}</span>
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Customer</span><p className="font-medium mt-0.5">{viewingOrder.customer}</p></div>
+                <div><span className="text-muted-foreground">Date</span><p className="font-medium mt-0.5">{viewingOrder.date}</p></div>
+                <div><span className="text-muted-foreground">Status</span>
+                  <div className="mt-0.5"><Badge variant={statusColors[viewingOrder.status] ?? "outline"}>{viewingOrder.status}</Badge></div>
+                </div>
+                <div><span className="text-muted-foreground">Total</span><p className="font-bold text-primary mt-0.5">Rs. {viewingOrder.total.toLocaleString()}</p></div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Customer</span>
-                <span className="font-medium">{viewingOrder.customer}</span>
+
+              {/* Line items table */}
+              {viewingOrder.lineItems && viewingOrder.lineItems.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold mb-2 text-muted-foreground">ITEMS</p>
+                  <div className="rounded-lg border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Item</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Qty</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Unit Price</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {viewingOrder.lineItems.map((item, i) => (
+                          <tr key={item.id} className="border-t">
+                            <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
+                            <td className="px-3 py-2 font-medium">{item.product}</td>
+                            <td className="px-3 py-2 text-center">{item.qty}</td>
+                            <td className="px-3 py-2 text-right">Rs. {item.unitPrice.toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right font-semibold">Rs. {(item.qty * item.unitPrice).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsViewOpen(false)}>Close</Button>
+            {viewingOrder && (
+              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => { setIsViewOpen(false); openIssueInvoice(viewingOrder); }}>
+                <FileText className="h-4 w-4" /> Issue Invoice
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Issue Invoice Dialog ──────────────────────────────────────────── */}
+      <Dialog open={isInvoiceOpen} onOpenChange={setIsInvoiceOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-600" />
+              Issue Invoice
+            </DialogTitle>
+          </DialogHeader>
+          {invoiceSource && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Order</span><span className="font-medium">{invoiceSource.id}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span className="font-medium">{invoiceSource.customer}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Issue Date</span><span className="font-medium">{invoiceSource.date}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-bold text-primary">Rs. {invoiceSource.total.toLocaleString()}</span></div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Products</span>
-                <span className="font-medium text-right max-w-[200px]">{viewingOrder.products}</span>
+
+              <div className="grid gap-1.5">
+                <Label>Due Date</Label>
+                <Input type="date" value={invDueDate} onChange={(e) => setInvDueDate(e.target.value)} />
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total</span>
-                <span className="font-medium">Rs. {viewingOrder.total.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Status</span>
-                <Badge variant={statusColors[viewingOrder.status]}>{viewingOrder.status}</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Date</span>
-                <span className="font-medium">{viewingOrder.date}</span>
+
+              <div className="grid gap-1.5">
+                <Label>Invoice Status</Label>
+                <Select value={invStatus} onValueChange={setInvStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Pending", "Paid", "Overdue"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-              Close
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsInvoiceOpen(false)}>Cancel</Button>
+            <Button variant="outline" className="w-full sm:w-auto gap-2"
+              onClick={() => handleIssueInvoice(false)}>
+              <FileText className="h-4 w-4" /> Save Invoice
+            </Button>
+            <Button className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => handleIssueInvoice(true)}>
+              <Download className="h-4 w-4" /> Save & Download PDF
             </Button>
           </DialogFooter>
         </DialogContent>

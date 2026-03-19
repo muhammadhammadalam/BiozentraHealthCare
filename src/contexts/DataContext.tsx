@@ -10,6 +10,14 @@ export interface Product {
   status: string;
 }
 
+// Line item for orders
+export interface LineItem {
+  id: string;
+  product: string;
+  qty: number;
+  unitPrice: number;
+}
+
 // Order types
 export interface Order {
   id: string;
@@ -18,6 +26,7 @@ export interface Order {
   total: number;
   status: string;
   date: string;
+  lineItems?: LineItem[];
 }
 
 // Customer types

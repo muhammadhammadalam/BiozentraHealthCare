@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { QuickActions } from "@/components/QuickActions";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,8 +35,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <NotificationDropdown />
-            
             <div className="flex items-center gap-3 rounded-lg bg-secondary px-3 py-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
                 {user?.name?.charAt(0) || "U"}

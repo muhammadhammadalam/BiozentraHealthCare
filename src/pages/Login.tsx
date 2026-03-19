@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, LogIn, UserPlus, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,325 +16,203 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
   const [loginData, setLoginData] = useState({ username: "", password: "" });
-  const [registerData, setRegisterData] = useState({
-    name: "", email: "", username: "", password: "", confirmPassword: "",
-  });
+  const [registerData, setRegisterData] = useState({ name: "", email: "", username: "", password: "", confirmPassword: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       const success = await login(loginData.username, loginData.password);
-      if (success) {
-        toast.success("Welcome back!");
-        navigate("/");
-      } else {
-        toast.error("Invalid username or password");
-      }
-    } catch {
-      toast.error("Login failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+      if (success) { toast.success("Welcome back!"); navigate("/"); }
+      else toast.error("Invalid username or password");
+    } catch { toast.error("Login failed. Please try again."); }
+    finally { setIsLoading(false); }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    if (registerData.password !== registerData.confirmPassword) {
-      toast.error("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
-    if (registerData.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      setIsLoading(false);
-      return;
-    }
+    if (registerData.password !== registerData.confirmPassword) { toast.error("Passwords do not match"); setIsLoading(false); return; }
+    if (registerData.password.length < 6) { toast.error("Password must be at least 6 characters"); setIsLoading(false); return; }
     try {
-      const success = await register(
-        registerData.username, registerData.email,
-        registerData.password, registerData.name
-      );
-      if (success) {
-        toast.success("Account created successfully!");
-        navigate("/");
-      } else {
-        toast.error("Username or email already exists");
-      }
-    } catch {
-      toast.error("Registration failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+      const success = await register(registerData.username, registerData.email, registerData.password, registerData.name);
+      if (success) { toast.success("Account created!"); navigate("/"); }
+      else toast.error("Username or email already exists");
+    } catch { toast.error("Registration failed."); }
+    finally { setIsLoading(false); }
   };
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
+    <div className="flex min-h-screen">
+      {/* ── Left Panel: Branding ──────────────────────────────────────────── */}
+      <div className="hidden lg:flex lg:w-[45%] flex-col justify-between bg-[#0f2e1a] p-12 relative overflow-hidden">
+        {/* subtle texture */}
+        <div className="absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
 
-      {/* Animated background blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-green-400/10 blur-3xl" />
-        <div className="absolute left-1/3 top-1/3 h-72 w-72 rounded-full bg-emerald-300/5 blur-2xl" />
-        {/* subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: "linear-gradient(#4ade80 1px, transparent 1px), linear-gradient(90deg, #4ade80 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-      </div>
+        {/* top accent line */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600" />
 
-      {/* ── Left branding panel ─────────────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-14 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, x: -40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.75 }}
-          className="flex flex-col items-center text-center"
-        >
-          {/* Logo with glow ring */}
-          <motion.div
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.65, delay: 0.15 }}
-            className="mb-8 relative"
-          >
-            <div className="absolute inset-0 rounded-full bg-emerald-400/20 blur-2xl scale-125" />
-            <div className="relative h-36 w-36 rounded-full bg-white/10 p-3 ring-2 ring-emerald-400/40 shadow-2xl">
-              <img src={logo} alt="Biozentra" className="h-full w-full object-contain drop-shadow-xl" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-16">
+            <div className="h-10 w-10 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center p-1.5">
+              <img src={logo} alt="Biozentra" className="h-full w-full object-contain" />
             </div>
+            <div>
+              <p className="text-white font-bold tracking-wide text-sm">BIOZENTRA</p>
+              <p className="text-emerald-400/70 text-xs">Healthcare Management</p>
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+          >
+            <h1 className="text-4xl font-bold text-white leading-tight mb-4">
+              Manage your<br />
+              <span className="text-emerald-400">healthcare business</span><br />
+              with confidence.
+            </h1>
+            <p className="text-slate-400 text-base leading-relaxed max-w-sm">
+              A complete dashboard for tracking orders, inventory, invoices, and customers — built for Pakistan and the Middle East.
+            </p>
           </motion.div>
+        </div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-5xl font-black tracking-tight text-white drop-shadow-lg"
-          >
-            BIOZENTRA
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-2 text-lg font-semibold text-emerald-300 tracking-wide"
-          >
-            Healthcare Management
-          </motion.p>
-
-          {/* Feature list */}
-          <div className="mt-12 space-y-4 text-left max-w-xs w-full">
+        <div className="relative z-10">
+          <div className="grid grid-cols-3 gap-4 mb-8">
             {[
-              "Track sales & inventory in real time",
-              "Manage orders, invoices & customers",
-              "Smart analytics for smarter decisions",
-              "Secure & fast — built for your team",
-            ].map((text, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.55 + i * 0.12 }}
-                className="flex items-center gap-3"
-              >
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-400" />
-                <span className="text-sm text-green-100/90">{text}</span>
-              </motion.div>
+              { label: "Orders", desc: "Track & manage" },
+              { label: "Invoices", desc: "PDF export" },
+              { label: "Analytics", desc: "Live insights" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-white text-sm font-semibold">{item.label}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{item.desc}</p>
+              </div>
             ))}
           </div>
-
-          {/* Decorative pill badges */}
-          <div className="mt-10 flex flex-wrap gap-2 justify-center">
-            {["Pakistan", "Middle East", "PKR / AED / SAR"].map((label) => (
-              <span
-                key={label}
-                className="rounded-full border border-emerald-500/40 bg-emerald-900/40 px-3 py-1 text-xs text-emerald-300"
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        </motion.div>
+          <p className="text-slate-600 text-xs">© {new Date().getFullYear()} Biozentra Healthcare. All rights reserved.</p>
+        </div>
       </div>
 
-      {/* ── Right form panel ────────────────────────────────────────────── */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center p-6 relative z-10">
+      {/* ── Right Panel: Form ─────────────────────────────────────────────── */}
+      <div className="flex flex-1 items-center justify-center bg-white dark:bg-slate-950 p-8">
         <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="w-full max-w-md"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-[400px]"
         >
           {/* Mobile logo */}
-          <div className="mb-8 flex flex-col items-center lg:hidden">
-            <div className="relative mb-4">
-              <div className="absolute inset-0 rounded-full bg-emerald-400/20 blur-xl" />
-              <div className="relative h-20 w-20 rounded-full bg-white/10 p-2 ring-2 ring-emerald-400/40">
-                <img src={logo} alt="Biozentra" className="h-full w-full object-contain" />
-              </div>
+          <div className="flex items-center gap-3 mb-8 lg:hidden">
+            <img src={logo} alt="Biozentra" className="h-9 w-9 object-contain" />
+            <div>
+              <p className="font-bold text-foreground">BIOZENTRA</p>
+              <p className="text-xs text-muted-foreground">Healthcare Management</p>
             </div>
-            <h1 className="text-2xl font-black text-white">BIOZENTRA</h1>
-            <p className="text-sm text-emerald-300">Healthcare Management</p>
           </div>
 
-          {/* Card */}
-          <div className="rounded-2xl border border-emerald-700/40 bg-[#052e16]/70 p-8 shadow-2xl backdrop-blur-xl">
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="mb-6 grid w-full grid-cols-2 bg-green-950/60 rounded-xl">
-                <TabsTrigger
-                  value="login"
-                  className="rounded-lg text-green-400/70 data-[state=active]:bg-emerald-700 data-[state=active]:text-white font-semibold"
-                >
-                  Sign In
-                </TabsTrigger>
-                <TabsTrigger
-                  value="register"
-                  className="rounded-lg text-green-400/70 data-[state=active]:bg-emerald-700 data-[state=active]:text-white font-semibold"
-                >
-                  Register
-                </TabsTrigger>
-              </TabsList>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="mb-7 grid w-full grid-cols-2 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+              <TabsTrigger value="login"
+                className="rounded-md text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-white">
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger value="register"
+                className="rounded-md text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-white">
+                Register
+              </TabsTrigger>
+            </TabsList>
 
-              {/* ── Login ── */}
-              <TabsContent value="login">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-white">Welcome back</h2>
-                  <p className="text-sm text-green-400/70 mt-1">Sign in to your dashboard</p>
+            {/* ── Sign In ── */}
+            <TabsContent value="login">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground">Sign in</h2>
+                <p className="text-muted-foreground text-sm mt-1">Enter your credentials to access the dashboard</p>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-username" className="text-sm font-medium">Username</Label>
+                  <Input id="login-username" placeholder="Enter username"
+                    value={loginData.username}
+                    onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                    required className="h-10" />
                 </div>
-                <form onSubmit={handleLogin} className="space-y-5">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="login-username" className="text-green-200 text-sm font-medium">Username</Label>
-                    <Input
-                      id="login-username"
-                      placeholder="Enter your username"
-                      value={loginData.username}
-                      onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                      required
-                      className="border-emerald-700/50 bg-green-950/50 text-white placeholder:text-green-600/50 focus:border-emerald-400 focus-visible:ring-emerald-500/30"
-                    />
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-password" className="text-sm font-medium">Password</Label>
+                  <div className="relative">
+                    <Input id="login-password" type={showPassword ? "text" : "password"}
+                      placeholder="Enter password"
+                      value={loginData.password}
+                      onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                      required className="h-10 pr-10" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="login-password" className="text-green-200 text-sm font-medium">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="login-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={loginData.password}
-                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                        required
-                        className="border-emerald-700/50 bg-green-950/50 text-white placeholder:text-green-600/50 focus:border-emerald-400 focus-visible:ring-emerald-500/30 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500/50 hover:text-green-300 transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-11 rounded-xl shadow-lg shadow-emerald-900/40 transition-all"
-                    disabled={isLoading}
-                  >
-                    <LogIn className="h-4 w-4" />
-                    {isLoading ? "Signing in..." : "Sign In"}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              {/* ── Register ── */}
-              <TabsContent value="register">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-white">Create account</h2>
-                  <p className="text-sm text-green-400/70 mt-1">Register to get started</p>
                 </div>
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-green-200 text-sm font-medium">Full Name</Label>
-                    <Input
-                      placeholder="Enter your full name"
-                      value={registerData.name}
-                      onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                      required
-                      className="border-emerald-700/50 bg-green-950/50 text-white placeholder:text-green-600/50 focus:border-emerald-400 focus-visible:ring-emerald-500/30"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-green-200 text-sm font-medium">Email</Label>
-                    <Input
-                      type="email"
-                      placeholder="your@email.com"
-                      value={registerData.email}
-                      onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                      required
-                      className="border-emerald-700/50 bg-green-950/50 text-white placeholder:text-green-600/50 focus:border-emerald-400 focus-visible:ring-emerald-500/30"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-green-200 text-sm font-medium">Username</Label>
-                    <Input
-                      placeholder="Choose a username"
-                      value={registerData.username}
-                      onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                      required
-                      className="border-emerald-700/50 bg-green-950/50 text-white placeholder:text-green-600/50 focus:border-emerald-400 focus-visible:ring-emerald-500/30"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-green-200 text-sm font-medium">Password</Label>
-                    <div className="relative">
-                      <Input
-                        type={showRegPassword ? "text" : "password"}
-                        placeholder="Min. 6 characters"
-                        value={registerData.password}
-                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                        required
-                        className="border-emerald-700/50 bg-green-950/50 text-white placeholder:text-green-600/50 focus:border-emerald-400 focus-visible:ring-emerald-500/30 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowRegPassword(!showRegPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500/50 hover:text-green-300 transition-colors"
-                      >
-                        {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-green-200 text-sm font-medium">Confirm Password</Label>
-                    <Input
-                      type="password"
-                      placeholder="Re-enter password"
-                      value={registerData.confirmPassword}
-                      onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                      required
-                      className="border-emerald-700/50 bg-green-950/50 text-white placeholder:text-green-600/50 focus:border-emerald-400 focus-visible:ring-emerald-500/30"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-11 rounded-xl shadow-lg shadow-emerald-900/40 transition-all"
-                    disabled={isLoading}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    {isLoading ? "Creating account..." : "Create Account"}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </div>
+                <Button type="submit" className="w-full h-10 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold mt-2" disabled={isLoading}>
+                  <LogIn className="h-4 w-4" />
+                  {isLoading ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            </TabsContent>
 
-          <p className="mt-5 text-center text-xs text-green-700/60">
-            © {new Date().getFullYear()} BIOZENTRA Healthcare. All rights reserved.
-          </p>
+            {/* ── Register ── */}
+            <TabsContent value="register">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground">Create account</h2>
+                <p className="text-muted-foreground text-sm mt-1">Register to get started</p>
+              </div>
+              <form onSubmit={handleRegister} className="space-y-3.5">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Full Name</Label>
+                  <Input placeholder="Your full name" value={registerData.name}
+                    onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+                    required className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Email</Label>
+                  <Input type="email" placeholder="your@email.com" value={registerData.email}
+                    onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                    required className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Username</Label>
+                  <Input placeholder="Choose a username" value={registerData.username}
+                    onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                    required className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Password</Label>
+                  <div className="relative">
+                    <Input type={showRegPassword ? "text" : "password"} placeholder="Min. 6 characters"
+                      value={registerData.password}
+                      onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                      required className="h-10 pr-10" />
+                    <button type="button" onClick={() => setShowRegPassword(!showRegPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Confirm Password</Label>
+                  <Input type="password" placeholder="Re-enter password" value={registerData.confirmPassword}
+                    onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                    required className="h-10" />
+                </div>
+                <Button type="submit" className="w-full h-10 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold mt-1" disabled={isLoading}>
+                  <UserPlus className="h-4 w-4" />
+                  {isLoading ? "Creating account..." : "Create Account"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </motion.div>
       </div>
     </div>
