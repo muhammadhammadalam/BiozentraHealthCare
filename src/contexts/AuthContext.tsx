@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { api, setToken, clearToken } from "@/lib/api";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface User {
   id: string;
@@ -11,9 +11,11 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   register: (username: string, email: string, password: string, name: string) => Promise<boolean>;
   logout: () => void;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  resetPassword: (newPassword: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,30 +31,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    // ── Supabase Auth mode ────────────────────────────────────────────────
+    if (isSupabaseConfigured && supabase) {
+      // Restore session on load
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            username: session.user.user_metadata?.username || session.user.email || "",
+            email: session.user.email || "",
+            name: session.user.user_metadata?.name || session.user.email || "",
+          });
+        }
+      });
+
+      // Listen for auth state changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            username: session.user.user_metadata?.username || session.user.email || "",
+            email: session.user.email || "",
+            name: session.user.user_metadata?.name || session.user.email || "",
+          });
+        } else {
+          setUser(null);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    }
+
+    // ── localStorage fallback mode ────────────────────────────────────────
     if (!localStorage.getItem(USERS_KEY)) {
       localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
     }
-    const currentUser = localStorage.getItem(CURRENT_USER_KEY);
-    if (currentUser) {
-      setUser(JSON.parse(currentUser));
-    }
+    const stored = localStorage.getItem(CURRENT_USER_KEY);
+    if (stored) setUser(JSON.parse(stored));
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    // Try backend first
-    try {
-      const tokens = await api.auth.login(username, password);
-      setToken(tokens.access);
-      const userObj: User = { id: username, username, email: "", name: username };
-      setUser(userObj);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userObj));
-      return true;
-    } catch {
-      // Backend unavailable - fall back to local auth
+  // ── Login ────────────────────────────────────────────────────────────────
+  const login = async (email: string, password: string): Promise<boolean> => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error && data.user) return true;
+      // If error is invalid credentials, return false
+      if (error?.message?.includes("Invalid login")) return false;
+      // Otherwise fall through to local fallback
     }
+
+    // Local fallback — accept email or username
     const storedUsers = JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
     const found = storedUsers.find(
-      (u: any) => u.username === username && u.password === password
+      (u: any) => (u.username === email || u.email === email) && u.password === password
     );
     if (found) {
       const { password: _p, ...userWithoutPassword } = found;
@@ -63,22 +94,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
+  // ── Register ─────────────────────────────────────────────────────────────
   const register = async (
     username: string,
     email: string,
     password: string,
     name: string
   ): Promise<boolean> => {
-    try {
-      await api.auth.register(username, password, email, name);
-      return await login(username, password);
-    } catch {
-      // Backend unavailable - fall back to local registration
-    }
-    const storedUsers = JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
-    if (storedUsers.some((u: any) => u.username === username || u.email === email)) {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { username, name } },
+      });
+      if (!error) return true;
       return false;
     }
+
+    // Local fallback
+    const storedUsers = JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
+    if (storedUsers.some((u: any) => u.username === username || u.email === email)) return false;
     const newUser = { id: Date.now().toString(), username, email, password, name };
     storedUsers.push(newUser);
     localStorage.setItem(USERS_KEY, JSON.stringify(storedUsers));
@@ -88,14 +123,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  // ── Forgot Password ───────────────────────────────────────────────────────
+  const forgotPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (!error) {
+        return { success: true, message: "Password reset email sent! Check your inbox." };
+      }
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: "Password reset requires Supabase to be configured." };
+  };
+
+  // ── Reset Password (called from ResetPassword page after clicking email link) ──
+  const resetPassword = async (newPassword: string): Promise<{ success: boolean; message: string }> => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (!error) return { success: true, message: "Password updated successfully!" };
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: "Not supported in offline mode." };
+  };
+
+  // ── Logout ────────────────────────────────────────────────────────────────
   const logout = () => {
+    if (isSupabaseConfigured && supabase) {
+      supabase.auth.signOut();
+    }
     setUser(null);
-    clearToken();
     localStorage.removeItem(CURRENT_USER_KEY);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout, forgotPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
@@ -103,8 +165,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };
