@@ -50,7 +50,7 @@ function calcSubtotal(items: LineItem[]) {
 
 // ─── component ────────────────────────────────────────────────────────────────
 const Orders = () => {
-  const { orders, customers, products: allProducts, addOrder, updateOrder, deleteOrder, addInvoice } = useData();
+  const { orders, customers, products: allProducts, addOrder, updateOrder, deleteOrder, addInvoice, updateProduct } = useData();
 
   const customerNames = customers.map((c) => c.name);
 
@@ -128,10 +128,56 @@ const Orders = () => {
   const removeItem = (id: string) =>
     setLineItems((prev) => (prev.length > 1 ? prev.filter((i) => i.id !== id) : prev));
 
+  // Deduct ordered quantities from stock (DataContext products + localStorage stock items)
+  const deductStock = async (items: LineItem[]) => {
+    const STOCK_KEY = "biozentra-stock";
+
+    // 1. Deduct from DataContext products (Supabase)
+    for (const item of items) {
+      const product = allProducts.find((p) => p.name === item.product);
+      if (product && product.stock > 0) {
+        const newStock = Math.max(0, product.stock - item.qty);
+        try { await updateProduct(product.id, { stock: newStock }); } catch { /* non-blocking */ }
+      }
+    }
+
+    // 2. Deduct from localStorage stock items (Stock page)
+    try {
+      const stored = localStorage.getItem(STOCK_KEY);
+      const stockItems: Array<{ id: number; name: string; quantity: number; maxStock: number; status: string }> =
+        stored ? JSON.parse(stored) : [];
+      const updated = stockItems.map((si) => {
+        const match = items.find((i) => i.product === si.name);
+        if (!match) return si;
+        const newQty = Math.max(0, si.quantity - match.qty);
+        const pct = si.maxStock > 0 ? (newQty / si.maxStock) * 100 : 0;
+        const status = newQty === 0 ? "Out" : pct < 5 ? "Critical" : pct < 20 ? "Low" : "Healthy";
+        return { ...si, quantity: newQty, status };
+      });
+      localStorage.setItem(STOCK_KEY, JSON.stringify(updated));
+    } catch { /* non-blocking */ }
+  };
+
   const handleSave = async () => {
     if (!formCustomer.trim()) { toast.error("Select a customer"); return; }
     const validItems = lineItems.filter((i) => i.product.trim());
     if (validItems.length === 0) { toast.error("Add at least one item"); return; }
+
+    // Stock check — warn if any item exceeds available stock
+    const stockWarnings: string[] = [];
+    for (const item of validItems) {
+      const product = allProducts.find((p) => p.name === item.product);
+      if (product && item.qty > product.stock) {
+        stockWarnings.push(`${item.product}: ordered ${item.qty}, only ${product.stock} in stock`);
+      }
+    }
+    if (stockWarnings.length > 0) {
+      const confirmed = window.confirm(
+        `Stock warning:\n${stockWarnings.join("\n")}\n\nProceed anyway?`
+      );
+      if (!confirmed) return;
+    }
+
     const products = lineItemsToString(validItems);
     const total = grandTotal;
 
@@ -141,6 +187,8 @@ const Orders = () => {
         toast.success("Order updated");
       } else {
         await addOrder({ customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+        // Deduct stock only on new orders, not edits
+        await deductStock(validItems);
         toast.success("Order created");
       }
       closeDialog();

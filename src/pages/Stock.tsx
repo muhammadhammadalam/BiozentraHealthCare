@@ -124,6 +124,10 @@ const Stock = () => {
       toast.error("Please fill in all required fields");
       return;
     }
+    if (formData.quantity > formData.maxStock) {
+      toast.error(`Quantity (${formData.quantity}) cannot exceed Max Stock (${formData.maxStock})`);
+      return;
+    }
     const status = getAutoStatus(formData.quantity, formData.maxStock);
     if (editingItem) {
       setStockItems((prev) =>
@@ -346,16 +350,30 @@ const Stock = () => {
               />
             </div>
             <div className="grid gap-2">
-              <Label>Quantity</Label>
+              <Label>
+                Quantity
+                {formData.maxStock > 0 && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    (max {formData.maxStock})
+                  </span>
+                )}
+              </Label>
               <Input
                 type="number"
                 min="0"
+                max={formData.maxStock > 0 ? formData.maxStock : undefined}
                 value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })
-                }
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  const capped = formData.maxStock > 0 ? Math.min(val, formData.maxStock) : val;
+                  setFormData({ ...formData, quantity: capped });
+                }}
                 placeholder="Current quantity"
+                className={formData.maxStock > 0 && formData.quantity > formData.maxStock ? "border-destructive" : ""}
               />
+              {formData.maxStock > 0 && formData.quantity > formData.maxStock && (
+                <p className="text-xs text-destructive">Exceeds max stock limit</p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label>Max Stock *</Label>
@@ -363,9 +381,15 @@ const Stock = () => {
                 type="number"
                 min="1"
                 value={formData.maxStock}
-                onChange={(e) =>
-                  setFormData({ ...formData, maxStock: parseInt(e.target.value) || 0 })
-                }
+                onChange={(e) => {
+                  const newMax = parseInt(e.target.value) || 0;
+                  setFormData({
+                    ...formData,
+                    maxStock: newMax,
+                    // clamp quantity if it now exceeds new max
+                    quantity: newMax > 0 ? Math.min(formData.quantity, newMax) : formData.quantity,
+                  });
+                }}
                 placeholder="Maximum stock capacity"
               />
             </div>
