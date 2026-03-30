@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, LogIn, UserPlus, Mail, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, LogIn, Mail, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import logo from "@/assets/logo.png";
@@ -14,15 +13,13 @@ type View = "auth" | "forgot" | "forgot-sent";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, register, forgotPassword } = useAuth();
+  const { login, forgotPassword } = useAuth();
 
   const [view, setView] = useState<View>("auth");
   const [showPassword, setShowPassword] = useState(false);
-  const [showRegPassword, setShowRegPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const [loginData, setLoginData] = useState({ email: "", password: "" });
-  const [registerData, setRegisterData] = useState({ name: "", email: "", username: "", password: "", confirmPassword: "" });
   const [forgotEmail, setForgotEmail] = useState("");
 
   // ── Sign In ──────────────────────────────────────────────────────────────
@@ -34,20 +31,6 @@ export default function Login() {
       if (result.ok) { toast.success("Welcome back!"); navigate("/"); }
       else toast.error(result.message || "Login failed. Please try again.");
     } catch { toast.error("Login failed. Please try again."); }
-    finally { setIsLoading(false); }
-  };
-
-  // ── Register ─────────────────────────────────────────────────────────────
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    if (registerData.password !== registerData.confirmPassword) { toast.error("Passwords do not match"); setIsLoading(false); return; }
-    if (registerData.password.length < 6) { toast.error("Password must be at least 6 characters"); setIsLoading(false); return; }
-    try {
-      const success = await register(registerData.username, registerData.email, registerData.password, registerData.name);
-      if (success) { toast.success("Account created! Check your email to verify."); navigate("/"); }
-      else toast.error("Username or email already exists");
-    } catch { toast.error("Registration failed."); }
     finally { setIsLoading(false); }
   };
 
@@ -80,6 +63,9 @@ export default function Login() {
             <p className="text-white font-bold tracking-widest text-3xl">BIOZENTRA</p>
             <p className="text-emerald-400/80 text-base mt-1 tracking-wide">Healthcare Management</p>
           </div>
+          <p className="text-slate-500 text-xs mt-2 max-w-[220px] leading-relaxed">
+            Internal management portal. Access is restricted to authorised staff only.
+          </p>
         </motion.div>
 
         <p className="absolute bottom-6 text-slate-600 text-xs">
@@ -156,111 +142,50 @@ export default function Login() {
               </motion.div>
             )}
 
-            {/* ── Main auth tabs ── */}
+            {/* ── Sign In ── */}
             {view === "auth" && (
               <motion.div key="auth"
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <Tabs defaultValue="login" className="w-full">
-                  <TabsList className="mb-7 grid w-full grid-cols-2 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                    <TabsTrigger value="login"
-                      className="rounded-md text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-white">
-                      Sign In
-                    </TabsTrigger>
-                    <TabsTrigger value="register"
-                      className="rounded-md text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-white">
-                      Register
-                    </TabsTrigger>
-                  </TabsList>
-
-                  {/* Sign In */}
-                  <TabsContent value="login">
-                    <div className="mb-6">
-                      <h2 className="text-2xl font-bold text-foreground">Sign in</h2>
-                      <p className="text-muted-foreground text-sm mt-1">Enter your credentials to access the dashboard</p>
+                <div className="mb-7">
+                  <h2 className="text-2xl font-bold text-foreground">Sign in</h2>
+                  <p className="text-muted-foreground text-sm mt-1">Enter your credentials to access the dashboard</p>
+                </div>
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Email address</Label>
+                    <Input type="email" placeholder="your@email.com" required
+                      value={loginData.email}
+                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                      className="h-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Password</Label>
+                    <div className="relative">
+                      <Input type={showPassword ? "text" : "password"} placeholder="Enter password" required
+                        value={loginData.password}
+                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                        className="h-10 pr-10" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                      <div className="space-y-1.5">
-                        <Label>Email address</Label>
-                        <Input type="email" placeholder="your@email.com" required
-                          value={loginData.email}
-                          onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                          className="h-10" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Password</Label>
-                        <div className="relative">
-                          <Input type={showPassword ? "text" : "password"} placeholder="Enter password" required
-                            value={loginData.password}
-                            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                            className="h-10 pr-10" />
-                          <button type="button" onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <button type="button" onClick={() => setView("forgot")}
-                          className="text-xs text-emerald-600 hover:text-emerald-700 hover:underline transition-colors">
-                          Forgot password?
-                        </button>
-                      </div>
-                      <Button type="submit" className="w-full h-10 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" disabled={isLoading}>
-                        <LogIn className="h-4 w-4" />
-                        {isLoading ? "Signing in…" : "Sign In"}
-                      </Button>
-                    </form>
-                  </TabsContent>
-
-                  {/* Register */}
-                  <TabsContent value="register">
-                    <div className="mb-6">
-                      <h2 className="text-2xl font-bold text-foreground">Create account</h2>
-                      <p className="text-muted-foreground text-sm mt-1">Register to get started</p>
-                    </div>
-                    <form onSubmit={handleRegister} className="space-y-3.5">
-                      <div className="space-y-1.5">
-                        <Label>Full Name</Label>
-                        <Input placeholder="Your full name" required value={registerData.name}
-                          onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })} className="h-10" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Email</Label>
-                        <Input type="email" placeholder="your@email.com" required value={registerData.email}
-                          onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })} className="h-10" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Username</Label>
-                        <Input placeholder="Choose a username" required value={registerData.username}
-                          onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })} className="h-10" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Password</Label>
-                        <div className="relative">
-                          <Input type={showRegPassword ? "text" : "password"} placeholder="Min. 6 characters" required
-                            value={registerData.password}
-                            onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                            className="h-10 pr-10" />
-                          <button type="button" onClick={() => setShowRegPassword(!showRegPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                            {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Confirm Password</Label>
-                        <Input type="password" placeholder="Re-enter password" required
-                          value={registerData.confirmPassword}
-                          onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                          className="h-10" />
-                      </div>
-                      <Button type="submit" className="w-full h-10 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold mt-1" disabled={isLoading}>
-                        <UserPlus className="h-4 w-4" />
-                        {isLoading ? "Creating account…" : "Create Account"}
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                  <div className="flex justify-end">
+                    <button type="button" onClick={() => setView("forgot")}
+                      className="text-xs text-emerald-600 hover:text-emerald-700 hover:underline transition-colors">
+                      Forgot password?
+                    </button>
+                  </div>
+                  <Button type="submit" className="w-full h-10 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" disabled={isLoading}>
+                    <LogIn className="h-4 w-4" />
+                    {isLoading ? "Signing in…" : "Sign In"}
+                  </Button>
+                </form>
+                <p className="mt-6 text-center text-xs text-muted-foreground">
+                  Don't have access?{" "}
+                  <span className="text-foreground font-medium">Contact your administrator.</span>
+                </p>
               </motion.div>
             )}
 

@@ -110,6 +110,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string
   ): Promise<boolean> => {
+    // Option D: domain whitelist — if VITE_ALLOWED_EMAIL_DOMAIN is set,
+    // only emails from that domain are allowed to register.
+    const allowedDomain = import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN as string | undefined;
+    if (allowedDomain) {
+      const emailDomain = email.split("@")[1]?.toLowerCase();
+      if (emailDomain !== allowedDomain.toLowerCase()) {
+        console.warn("Registration blocked: unauthorised email domain.");
+        return false;
+      }
+    }
+
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signUp({
         email,
