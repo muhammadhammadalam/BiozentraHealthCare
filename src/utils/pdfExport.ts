@@ -25,6 +25,7 @@ interface InvoiceExport {
   dueDate: string;
   amount: number;
   status: string;
+  discountPct?: number;
 }
 
 interface CompanyInfo {
@@ -81,56 +82,71 @@ async function loadLogoBase64(): Promise<string | null> {
   }
 }
 
-// ── Letterhead: top section ───────────────────────────────────────────────────
+// ── Colours ──────────────────────────────────────────────────────────────────
+const GREEN_DARK:  [number, number, number] = [15, 82, 40];
+const GREEN_MED:   [number, number, number] = [22, 101, 52];
+const GREEN_LIGHT: [number, number, number] = [220, 252, 231];
+const GREY_LIGHT:  [number, number, number] = [248, 249, 250];
+const GREY_MED:    [number, number, number] = [200, 210, 205];
+const TEXT_DARK:   [number, number, number] = [20,  24,  28];
+const TEXT_MID:    [number, number, number] = [80,  90,  95];
+const TEXT_LIGHT:  [number, number, number] = [140, 150, 155];
+
+// ── Letterhead (shared) ───────────────────────────────────────────────────────
 function drawLetterhead(doc: jsPDF, logoB64: string | null, company: CompanyInfo) {
   const W = doc.internal.pageSize.width;
   const H = doc.internal.pageSize.height;
 
-  // Faded watermark — draw first so it's behind everything
+  // Faint watermark
   if (logoB64) {
     try {
-      // Draw the logo large and very lightly in the background
-      // We fake low opacity by drawing a near-white rect on top after the image
-      doc.addImage(logoB64, "PNG", W * 0.28, H * 0.18, W * 0.58, H * 0.58);
+      doc.addImage(logoB64, "PNG", W * 0.25, H * 0.20, W * 0.55, H * 0.55);
       doc.setFillColor(255, 255, 255);
-      // 93% white overlay — leaves ~7% of image visible
-      doc.rect(W * 0.28, H * 0.18, W * 0.58, H * 0.58, "F");
-    } catch { /* skip watermark if image fails */ }
+      doc.setGState(doc.GState({ opacity: 0.93 }));
+      doc.rect(W * 0.25, H * 0.20, W * 0.55, H * 0.55, "F");
+      doc.setGState(doc.GState({ opacity: 1 }));
+    } catch { /* skip */ }
   }
 
-  // Green top accent bar
-  doc.setFillColor(22, 101, 52);
-  doc.rect(0, 0, W, 3, "F");
+  // Top accent bar
+  doc.setFillColor(...GREEN_DARK);
+  doc.rect(0, 0, W, 4, "F");
 
-  // Logo top-left
+  // Logo
   if (logoB64) {
-    try { doc.addImage(logoB64, "PNG", 12, 6, 16, 16); } catch { /* skip */ }
+    try { doc.addImage(logoB64, "PNG", 12, 8, 18, 18); } catch { /* skip */ }
   }
 
-  // Company name
+  // Company name block
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(22, 101, 52);
-  doc.text("BIOZENTRA", 31, 13);
+  doc.setFontSize(12);
+  doc.setTextColor(...GREEN_MED);
+  doc.text("BIOZENTRA", 33, 16);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(60, 60, 60);
-  doc.text("HEALTHCARE", 31, 19);
+  doc.setFontSize(7.5);
+  doc.setTextColor(...TEXT_MID);
+  doc.text("HEALTHCARE MANAGEMENT", 33, 22);
 
-  // Separator line
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(12, 26, W - 12, 26);
+  // Contact top-right
+  doc.setFontSize(7);
+  doc.setTextColor(...TEXT_LIGHT);
+  doc.text(`${company.phone}  |  ${company.email}  |  www.biozentra.pk`, W - 14, 14, { align: "right" });
+  doc.text(`${company.address}, ${company.city}`, W - 14, 20, { align: "right" });
+
+  // Divider
+  doc.setDrawColor(...GREY_MED);
+  doc.setLineWidth(0.4);
+  doc.line(12, 30, W - 12, 30);
 }
 
-// ── Green footer bar ──────────────────────────────────────────────────────────
+// ── Footer ────────────────────────────────────────────────────────────────────
 function drawLetterheadFooter(doc: jsPDF, company: CompanyInfo) {
   const W = doc.internal.pageSize.width;
   const H = doc.internal.pageSize.height;
   const barH = 14;
   const barY = H - barH;
 
-  doc.setFillColor(22, 101, 52);
+  doc.setFillColor(...GREEN_DARK);
   doc.rect(0, barY, W, barH, "F");
 
   doc.setFont("helvetica", "normal");
@@ -139,10 +155,9 @@ function drawLetterheadFooter(doc: jsPDF, company: CompanyInfo) {
 
   const phone   = company.phone   || "+92 321 9221901";
   const email   = company.email   || "info@biozentra.pk";
-  const website = "www.biozentra.pk";
   const address = [company.address, company.city].filter(Boolean).join(", ") || "Karachi, Pakistan";
 
-  const items = [`Tel: ${phone}`, `Email: ${email}`, `Web: ${website}`, address];
+  const items = [`Tel: ${phone}`, `Email: ${email}`, `Web: www.biozentra.pk`, address];
   const colW = W / items.length;
   items.forEach((text, i) => {
     doc.text(text, colW * i + colW / 2, barY + 9, { align: "center" });
@@ -155,7 +170,7 @@ function addPageNumbers(doc: jsPDF) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(7.5);
-    doc.setTextColor(160);
+    doc.setTextColor(...TEXT_LIGHT);
     doc.text(
       `Page ${i} of ${pageCount}`,
       doc.internal.pageSize.width / 2,
@@ -179,26 +194,31 @@ export const exportOrdersToPDF = async (orders: OrderExport[]) => {
   drawLetterhead(doc, logoB64, company);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(20);
-  doc.text("Orders Report", W / 2, 36, { align: "center" });
+  doc.setFontSize(15);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text("ORDERS REPORT", W / 2, 42, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
-  doc.setTextColor(120);
-  doc.text(`Generated: ${new Date().toLocaleDateString("en-PK")}`, W / 2, 43, { align: "center" });
+  doc.setTextColor(...TEXT_LIGHT);
+  doc.text(`Generated: ${new Date().toLocaleDateString("en-PK")}   |   Total records: ${orders.length}`, W / 2, 49, { align: "center" });
 
   autoTable(doc, {
-    startY: 50,
+    startY: 56,
     head: [["Order ID", "Customer", "Date", "Items", `Total (${curr})`, "Status"]],
     body: orders.map((o) => [o.id, o.customer, o.date, o.items.toString(), o.total.toLocaleString(), o.status]),
-    headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [240, 253, 244] },
-    styles: { fontSize: 9, cellPadding: 4 },
-    margin: { bottom: 22 },
+    headStyles: { fillColor: GREEN_MED, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9, cellPadding: 5 },
+    alternateRowStyles: { fillColor: GREEN_LIGHT },
+    styles: { fontSize: 9, cellPadding: 4.5, lineColor: GREY_MED, lineWidth: 0.2 },
+    margin: { left: 12, right: 12, bottom: 22 },
+    columnStyles: {
+      0: { fontStyle: "bold" },
+      4: { halign: "right" },
+      5: { halign: "center" },
+    },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 5) {
         const s = data.cell.raw as string;
-        if (s === "Delivered") data.cell.styles.textColor = [22, 101, 52];
+        if (s === "Delivered") data.cell.styles.textColor = GREEN_MED;
         else if (s === "Pending") data.cell.styles.textColor = [161, 98, 7];
         else if (s === "Cancelled") data.cell.styles.textColor = [185, 28, 28];
       }
@@ -221,35 +241,52 @@ export const exportInvoicesToPDF = async (invoices: InvoiceExport[]) => {
   drawLetterhead(doc, logoB64, company);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(20);
-  doc.text("Invoices Report", W / 2, 36, { align: "center" });
+  doc.setFontSize(15);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text("INVOICES REPORT", W / 2, 42, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
-  doc.setTextColor(120);
-  doc.text(`Generated: ${new Date().toLocaleDateString("en-PK")}`, W / 2, 43, { align: "center" });
+  doc.setTextColor(...TEXT_LIGHT);
+  doc.text(`Generated: ${new Date().toLocaleDateString("en-PK")}   |   Total records: ${invoices.length}`, W / 2, 49, { align: "center" });
 
   const totalAmt   = invoices.reduce((s, i) => s + i.amount, 0);
   const paidAmt    = invoices.filter(i => i.status === "Paid").reduce((s, i) => s + i.amount, 0);
   const pendingAmt = invoices.filter(i => i.status === "Pending").reduce((s, i) => s + i.amount, 0);
 
-  doc.setFontSize(9); doc.setTextColor(30);
-  doc.text(`Total: ${curr} ${totalAmt.toLocaleString()}`, 14, 52);
-  doc.text(`Paid: ${curr} ${paidAmt.toLocaleString()}`, 80, 52);
-  doc.text(`Pending: ${curr} ${pendingAmt.toLocaleString()}`, 146, 52);
+  // Summary pills
+  const summaryY = 53;
+  const pillData = [
+    { label: "Total", value: `${curr} ${totalAmt.toLocaleString()}`, bg: GREEN_MED as [number,number,number], fg: [255,255,255] as [number,number,number] },
+    { label: "Paid", value: `${curr} ${paidAmt.toLocaleString()}`, bg: [34,120,60] as [number,number,number], fg: [255,255,255] as [number,number,number] },
+    { label: "Pending", value: `${curr} ${pendingAmt.toLocaleString()}`, bg: [161,98,7] as [number,number,number], fg: [255,255,255] as [number,number,number] },
+  ];
+  pillData.forEach((p, i) => {
+    const px = 14 + i * 60;
+    doc.setFillColor(...p.bg);
+    doc.roundedRect(px, summaryY, 54, 10, 2, 2, "F");
+    doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...p.fg);
+    doc.text(p.label, px + 4, summaryY + 4.5);
+    doc.setFont("helvetica", "bold");
+    doc.text(p.value, px + 50, summaryY + 7, { align: "right" });
+  });
 
   autoTable(doc, {
-    startY: 60,
-    head: [["Invoice ID", "Customer", "Date", "Due Date", `Amount (${curr})`, "Status"]],
+    startY: 68,
+    head: [["Invoice ID", "Customer", "Issue Date", "Due Date", `Amount (${curr})`, "Status"]],
     body: invoices.map((inv) => [inv.id, inv.customer, inv.date, inv.dueDate, inv.amount.toLocaleString(), inv.status]),
-    headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [240, 253, 244] },
-    styles: { fontSize: 9, cellPadding: 4 },
-    margin: { bottom: 22 },
+    headStyles: { fillColor: GREEN_MED, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9, cellPadding: 5 },
+    alternateRowStyles: { fillColor: GREEN_LIGHT },
+    styles: { fontSize: 9, cellPadding: 4.5, lineColor: GREY_MED, lineWidth: 0.2 },
+    margin: { left: 12, right: 12, bottom: 22 },
+    columnStyles: {
+      0: { fontStyle: "bold" },
+      4: { halign: "right" },
+      5: { halign: "center" },
+    },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 5) {
         const s = data.cell.raw as string;
-        if (s === "Paid") data.cell.styles.textColor = [22, 101, 52];
+        if (s === "Paid") data.cell.styles.textColor = GREEN_MED;
         else if (s === "Overdue") data.cell.styles.textColor = [185, 28, 28];
         else if (s === "Pending") data.cell.styles.textColor = [161, 98, 7];
       }
@@ -262,6 +299,7 @@ export const exportInvoicesToPDF = async (invoices: InvoiceExport[]) => {
   doc.save(`biozentra-invoices-${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
+// ── Single Invoice PDF (industrial quality) ───────────────────────────────────
 export const exportSingleInvoicePDF = async (
   invoice: InvoiceExport,
   lineItems?: LineItem[],
@@ -269,62 +307,113 @@ export const exportSingleInvoicePDF = async (
 ) => {
   const company = loadCompanyInfo();
   const logoB64 = await loadLogoBase64();
-  const doc     = new jsPDF();
+  const doc     = new jsPDF({ unit: "mm", format: "a4" });
   const curr    = company.currency || "PKR";
   const W       = doc.internal.pageSize.width;
+  const H       = doc.internal.pageSize.height;
 
-  drawLetterhead(doc, logoB64, company);
+  // ── Watermark ─────────────────────────────────────────────────────────────
+  if (logoB64) {
+    try {
+      doc.addImage(logoB64, "PNG", W * 0.22, H * 0.22, W * 0.56, H * 0.52);
+      doc.setFillColor(255, 255, 255);
+      doc.setGState(doc.GState({ opacity: 0.93 }));
+      doc.rect(W * 0.22, H * 0.22, W * 0.56, H * 0.52, "F");
+      doc.setGState(doc.GState({ opacity: 1 }));
+    } catch { /* skip */ }
+  }
 
-  // Invoice label top-right
+  // ── Top green header bar ───────────────────────────────────────────────────
+  doc.setFillColor(...GREEN_DARK);
+  doc.rect(0, 0, W, 38, "F");
+
+  // Logo in header
+  if (logoB64) {
+    try { doc.addImage(logoB64, "PNG", 10, 6, 22, 22); } catch { /* skip */ }
+  }
+
+  // Company name (white on green)
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.setTextColor(22, 101, 52);
-  doc.text("INVOICE", W - 14, 15, { align: "right" });
-  doc.setFontSize(9);
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text("BIOZENTRA", 36, 17);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(80);
-  doc.text(invoice.id, W - 14, 22, { align: "right" });
-
-  // Bill To + details box
-  const y0 = 34;
-
   doc.setFontSize(7.5);
-  doc.setTextColor(130);
+  doc.setTextColor(180, 230, 200);
+  doc.text("HEALTHCARE MANAGEMENT", 36, 24);
+  doc.setFontSize(7);
+  doc.setTextColor(160, 210, 185);
+  doc.text(`${company.phone}  |  ${company.email}`, 36, 31);
+
+  // INVOICE label (right side of header)
   doc.setFont("helvetica", "bold");
-  doc.text("BILL TO", 14, y0);
+  doc.setFontSize(22);
+  doc.setTextColor(255, 255, 255);
+  doc.text("INVOICE", W - 12, 18, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(160, 220, 185);
+  doc.text(invoice.id, W - 12, 27, { align: "right" });
+
+  // ── Info section (Bill To + Invoice Details) ───────────────────────────────
+  const infoY = 44;
+
+  // Left: Bill To
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...TEXT_LIGHT);
+  doc.text("BILL TO", 12, infoY);
+
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(20);
-  doc.text(invoice.customer, 14, y0 + 8);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(invoice.customer, 12, infoY + 9);
 
-  // Green details box
-  doc.setFillColor(240, 253, 244);
-  doc.roundedRect(W - 78, y0 - 2, 64, 32, 2, 2, "F");
-  doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(110);
-  const bx = W - 74;
-  doc.text("Invoice No:",  bx, y0 + 5);
-  doc.text("Issue Date:", bx, y0 + 13);
-  doc.text("Due Date:",   bx, y0 + 21);
-  doc.setFont("helvetica", "bold"); doc.setTextColor(20);
-  doc.text(invoice.id,       bx + 22, y0 + 5);
-  doc.text(invoice.date,     bx + 22, y0 + 13);
-  doc.text(invoice.dueDate,  bx + 22, y0 + 21);
-
-  // Status badge
-  const statusMap: Record<string, [number, number, number]> = {
-    Paid: [22, 101, 52], Pending: [161, 98, 7], Overdue: [185, 28, 28],
+  // Status badge under customer name
+  const statusColors: Record<string, [number,number,number]> = {
+    Paid: GREEN_MED, Pending: [161, 98, 7], Overdue: [185, 28, 28],
   };
-  const col = statusMap[invoice.status] || [80, 80, 80];
-  doc.setFillColor(...col);
-  doc.roundedRect(14, y0 + 12, 26, 8, 1.5, 1.5, "F");
-  doc.setFontSize(7); doc.setTextColor(255); doc.setFont("helvetica", "bold");
-  doc.text(invoice.status.toUpperCase(), 27, y0 + 17.5, { align: "center" });
+  const sBg = statusColors[invoice.status] || [80, 80, 80];
+  doc.setFillColor(...sBg);
+  doc.roundedRect(12, infoY + 13, 28, 7, 1.5, 1.5, "F");
+  doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
+  doc.text(invoice.status.toUpperCase(), 26, infoY + 17.5, { align: "center" });
 
-  // Line items table
-  const tableY = y0 + 40;
+  // Right: Invoice details box
+  const bx = W - 76;
+  const bw = 64;
+  doc.setFillColor(...GREY_LIGHT);
+  doc.setDrawColor(...GREY_MED);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(bx, infoY - 2, bw, 32, 2, 2, "FD");
+
+  const rows = [
+    ["Invoice No.", invoice.id],
+    ["Issue Date",  invoice.date],
+    ["Due Date",   invoice.dueDate],
+    ["Payment",    "30 days net"],
+  ];
+  rows.forEach(([label, val], idx) => {
+    const ry = infoY + 5 + idx * 7;
+    doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...TEXT_LIGHT);
+    doc.text(label, bx + 4, ry);
+    doc.setFont("helvetica", "bold"); doc.setTextColor(...TEXT_DARK);
+    doc.text(val, bx + bw - 4, ry, { align: "right" });
+  });
+
+  // ── Divider ────────────────────────────────────────────────────────────────
+  const divY = infoY + 34;
+  doc.setDrawColor(...GREY_MED);
+  doc.setLineWidth(0.3);
+  doc.line(12, divY, W - 12, divY);
+
+  // ── Line items table ───────────────────────────────────────────────────────
+  const tableStartY = divY + 4;
+
   if (lineItems && lineItems.length > 0) {
     autoTable(doc, {
-      startY: tableY,
-      head: [["#", "Item / Product", "Qty", `Unit Price (${curr})`, `Total (${curr})`]],
+      startY: tableStartY,
+      head: [["Sr.", "Description / Product", "Qty", `Unit Price (${curr})`, `Amount (${curr})`]],
       body: lineItems.map((item, i) => [
         (i + 1).toString(),
         item.product,
@@ -332,67 +421,122 @@ export const exportSingleInvoicePDF = async (
         item.unitPrice.toLocaleString(),
         (item.qty * item.unitPrice).toLocaleString(),
       ]),
-      headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold", fontSize: 9 },
-      alternateRowStyles: { fillColor: [240, 253, 244] },
-      styles: { fontSize: 9, cellPadding: 3.5 },
-      margin: { bottom: 30 },
-      columnStyles: {
-        0: { halign: "center", cellWidth: 12 },
-        2: { halign: "center", cellWidth: 18 },
-        3: { halign: "right", cellWidth: 38 },
-        4: { halign: "right", cellWidth: 38 },
+      headStyles: {
+        fillColor: GREEN_MED,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 9,
+        cellPadding: { top: 5, bottom: 5, left: 4, right: 4 },
       },
+      alternateRowStyles: { fillColor: GREEN_LIGHT },
+      styles: {
+        fontSize: 9.5,
+        cellPadding: { top: 4.5, bottom: 4.5, left: 4, right: 4 },
+        lineColor: GREY_MED,
+        lineWidth: 0.2,
+        textColor: TEXT_DARK,
+      },
+      margin: { left: 12, right: 12, bottom: 55 },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 12, fontStyle: "bold" },
+        2: { halign: "center", cellWidth: 16 },
+        3: { halign: "right",  cellWidth: 40 },
+        4: { halign: "right",  cellWidth: 40, fontStyle: "bold" },
+      },
+    });
+  } else {
+    // No line items — just show amount box directly
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [["Description", `Amount (${curr})`]],
+      body: [["Invoice amount", invoice.amount.toLocaleString()]],
+      headStyles: { fillColor: GREEN_MED, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
+      styles: { fontSize: 9.5, cellPadding: 5, lineColor: GREY_MED, lineWidth: 0.2 },
+      margin: { left: 12, right: 12, bottom: 55 },
     });
   }
 
-  // Totals block
+  // ── Totals block ───────────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const afterTable = (doc as any).lastAutoTable?.finalY ?? tableY + 20;
-  let ty = afterTable + 8;
+  const afterTable = (doc as any).lastAutoTable?.finalY ?? tableStartY + 20;
 
   const subtotal    = lineItems ? lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0) : invoice.amount;
-  const pct         = discountPct || 0;
-  const discountAmt = subtotal * pct / 100;
+  const pct         = discountPct ?? invoice.discountPct ?? 0;
+  const discountAmt = Math.round(subtotal * pct / 100);
+  const totalDue    = invoice.amount; // already net of discount
 
-  const boxX = W - 82;
-  const boxW = 68;
+  const boxX = W - 88;
+  const boxW = 76;
+  let ty = afterTable + 6;
 
-  // Subtotal row
-  doc.setFillColor(248, 252, 248);
-  doc.setDrawColor(200, 230, 210);
-  doc.setLineWidth(0.3);
-  doc.rect(boxX, ty, boxW, 8, "FD");
-  doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(80);
-  doc.text("Subtotal", boxX + 4, ty + 5.5);
-  doc.setTextColor(20);
-  doc.text(`${curr} ${subtotal.toLocaleString()}`, boxX + boxW - 4, ty + 5.5, { align: "right" });
-  ty += 8;
+  // Subtotal
+  doc.setFillColor(...GREY_LIGHT);
+  doc.setDrawColor(...GREY_MED);
+  doc.setLineWidth(0.2);
+  doc.rect(boxX, ty, boxW, 9, "FD");
+  doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...TEXT_MID);
+  doc.text("Subtotal", boxX + 5, ty + 6);
+  doc.setFont("helvetica", "bold"); doc.setTextColor(...TEXT_DARK);
+  doc.text(`${curr} ${subtotal.toLocaleString()}`, boxX + boxW - 5, ty + 6, { align: "right" });
+  ty += 9;
 
-  // Discount row
+  // Discount row (only if applicable)
   if (pct > 0) {
-    doc.setFillColor(255, 248, 248);
-    doc.rect(boxX, ty, boxW, 8, "FD");
-    doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(180, 40, 40);
-    doc.text(`Discount (${pct}%)`, boxX + 4, ty + 5.5);
-    doc.text(`- ${curr} ${discountAmt.toLocaleString()}`, boxX + boxW - 4, ty + 5.5, { align: "right" });
-    ty += 8;
+    doc.setFillColor(255, 244, 244);
+    doc.rect(boxX, ty, boxW, 9, "FD");
+    doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(185, 28, 28);
+    doc.text(`Discount (${pct}%)`, boxX + 5, ty + 6);
+    doc.setFont("helvetica", "bold");
+    doc.text(`- ${curr} ${discountAmt.toLocaleString()}`, boxX + boxW - 5, ty + 6, { align: "right" });
+    ty += 9;
   }
 
-  // Total due row
-  doc.setFillColor(22, 101, 52);
-  doc.rect(boxX, ty, boxW, 12, "F");
-  doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(200, 255, 200);
-  doc.text("TOTAL DUE", boxX + 4, ty + 7);
-  doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(255);
-  doc.text(`${curr} ${invoice.amount.toLocaleString()}`, boxX + boxW - 4, ty + 8, { align: "right" });
+  // Tax row (0% — shown for transparency)
+  doc.setFillColor(...GREY_LIGHT);
+  doc.rect(boxX, ty, boxW, 9, "FD");
+  doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...TEXT_MID);
+  doc.text("Tax (0%)", boxX + 5, ty + 6);
+  doc.setFont("helvetica", "bold"); doc.setTextColor(...TEXT_DARK);
+  doc.text(`${curr} 0`, boxX + boxW - 5, ty + 6, { align: "right" });
+  ty += 9;
 
-  // Thank you note
-  const pH = doc.internal.pageSize.height;
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8.5);
-  doc.setTextColor(120);
-  doc.text("Thank you for your business!", 14, pH - 20);
+  // Total due — green bar
+  doc.setFillColor(...GREEN_MED);
+  doc.roundedRect(boxX, ty, boxW, 14, 1.5, 1.5, "F");
+  doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(180, 230, 200);
+  doc.text("TOTAL DUE", boxX + 5, ty + 6);
+  doc.setFontSize(11.5); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
+  doc.text(`${curr} ${totalDue.toLocaleString()}`, boxX + boxW - 5, ty + 10, { align: "right" });
+  ty += 14;
 
+  // ── Notes / Payment terms ──────────────────────────────────────────────────
+  const notesY = Math.max(ty + 10, afterTable + 6);
+
+  doc.setFillColor(...GREEN_LIGHT);
+  doc.setDrawColor(...GREY_MED);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(12, notesY, 88, 28, 2, 2, "FD");
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...GREEN_DARK);
+  doc.text("PAYMENT TERMS & NOTES", 16, notesY + 6);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...TEXT_MID);
+  const notes = [
+    "• Payment due within 30 days of invoice date.",
+    "• Late payments may incur a 2% monthly service charge.",
+    "• For queries: info@biozentra.pk | +92 321 9221901",
+    "• Please reference the invoice number in all payments.",
+  ];
+  notes.forEach((line, i) => {
+    doc.text(line, 16, notesY + 13 + i * 4.5);
+  });
+
+  // ── Thank you strip ────────────────────────────────────────────────────────
+  const tyY = H - 30;
+  doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(...TEXT_MID);
+  doc.text("Thank you for your business with Biozentra Healthcare.", W / 2, tyY, { align: "center" });
+
+  // ── Footer ─────────────────────────────────────────────────────────────────
   drawLetterheadFooter(doc, company);
+
   doc.save(`${invoice.id}.pdf`);
 };

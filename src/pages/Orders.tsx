@@ -209,15 +209,16 @@ const Orders = () => {
 
     const products = lineItemsToString(validItems);
     const total = grandTotal;
+    const discountPctNum = parseFloat(discountPct) || 0;
 
     try {
       if (editingId) {
-        await updateOrder(editingId, { customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+        await updateOrder(editingId, { customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems, discountPct: discountPctNum });
         // Net delta: restore old quantities, deduct new quantities
         await applyStockDelta(buildDelta(oldItems, validItems));
         toast.success("Order updated");
       } else {
-        await addOrder({ customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+        await addOrder({ customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems, discountPct: discountPctNum });
         // New order: purely deduct
         await applyStockDelta(buildDelta([], validItems));
         toast.success("Order created");
@@ -269,7 +270,8 @@ const Orders = () => {
     due.setDate(due.getDate() + 30);
     setInvDueDate(due.toISOString().split("T")[0]);
     setInvStatus("Pending");
-    setInvDiscountPct("");
+    // Auto-carry discount from the order
+    setInvDiscountPct(order.discountPct ? order.discountPct.toString() : "");
     setIsInvoiceOpen(true);
   };
 
@@ -281,6 +283,7 @@ const Orders = () => {
       dueDate: invDueDate,
       amount: invTotal,
       status: invStatus,
+      discountPct: parseFloat(invDiscountPct) || 0,
     };
     try {
       await addInvoice(invoiceData);

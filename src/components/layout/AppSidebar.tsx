@@ -12,6 +12,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export function AppSidebar() {
       items: [
         { title: "Orders", icon: ShoppingCart, href: "/orders", badge: pendingOrdersCount || undefined },
         { title: "Invoices", icon: Receipt, href: "/invoices" },
+        { title: "Expenses", icon: Wallet, href: "/expenses" },
       ],
     },
     {

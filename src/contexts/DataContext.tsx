@@ -27,6 +27,7 @@ export interface Order {
   status: string;
   date: string;
   lineItems?: LineItem[];
+  discountPct?: number;
 }
 
 export interface Customer {
@@ -47,6 +48,7 @@ export interface Invoice {
   dueDate: string;
   amount: number;
   status: string;
+  discountPct?: number;
 }
 
 interface DataContextType {
@@ -108,6 +110,7 @@ function mapOrder(row: any): Order {
     status: row.status || "Pending",
     date: row.date || "",
     lineItems: row.line_items ?? undefined,
+    discountPct: row.discount_pct != null ? Number(row.discount_pct) : undefined,
   };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,6 +146,7 @@ function mapInvoice(row: any): Invoice {
     dueDate: row.due_date || "",
     amount: Number(row.amount) || 0,
     status: row.status || "Pending",
+    discountPct: row.discount_pct != null ? Number(row.discount_pct) : undefined,
   };
 }
 
@@ -275,6 +279,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: order.status,
         date: order.date,
         line_items: order.lineItems ?? [],
+        discount_pct: order.discountPct ?? 0,
       }]);
       if (error) { console.error("addOrder:", error); throw error; }
       setOrders(prev => [newOrder, ...prev]);
@@ -366,6 +371,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         due_date: invoice.dueDate,
         amount: invoice.amount,
         status: invoice.status,
+        discount_pct: invoice.discountPct ?? 0,
       }]);
       if (error) { console.error("addInvoice:", error); throw error; }
       setInvoices(prev => [newInvoice, ...prev]);
