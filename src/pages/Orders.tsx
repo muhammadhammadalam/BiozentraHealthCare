@@ -128,28 +128,29 @@ const Orders = () => {
   const removeItem = (id: string) =>
     setLineItems((prev) => (prev.length > 1 ? prev.filter((i) => i.id !== id) : prev));
 
-  // Deduct ordered quantities from stock (DataContext products + localStorage stock items)
-  const deductStock = async (items: LineItem[]) => {
+  // Apply a net stock delta map { productName -> qtyChange (negative = deduct, positive = restore) }
+  const applyStockDelta = async (delta: Record<string, number>) => {
     const STOCK_KEY = "biozentra-stock";
 
-    // 1. Deduct from DataContext products (Supabase)
-    for (const item of items) {
-      const product = allProducts.find((p) => p.name === item.product);
-      if (product && product.stock > 0) {
-        const newStock = Math.max(0, product.stock - item.qty);
+    // 1. Apply to DataContext products (Supabase)
+    for (const [name, change] of Object.entries(delta)) {
+      if (change === 0) continue;
+      const product = allProducts.find((p) => p.name === name);
+      if (product) {
+        const newStock = Math.max(0, product.stock + change);
         try { await updateProduct(product.id, { stock: newStock }); } catch { /* non-blocking */ }
       }
     }
 
-    // 2. Deduct from localStorage stock items (Stock page)
+    // 2. Apply to localStorage stock items (Stock page)
     try {
       const stored = localStorage.getItem(STOCK_KEY);
       const stockItems: Array<{ id: number; name: string; quantity: number; maxStock: number; status: string }> =
         stored ? JSON.parse(stored) : [];
       const updated = stockItems.map((si) => {
-        const match = items.find((i) => i.product === si.name);
-        if (!match) return si;
-        const newQty = Math.max(0, si.quantity - match.qty);
+        const change = delta[si.name];
+        if (change === undefined || change === 0) return si;
+        const newQty = Math.max(0, si.quantity + change);
         const pct = si.maxStock > 0 ? (newQty / si.maxStock) * 100 : 0;
         const status = newQty === 0 ? "Out" : pct < 5 ? "Critical" : pct < 20 ? "Low" : "Healthy";
         return { ...si, quantity: newQty, status };
@@ -158,17 +159,45 @@ const Orders = () => {
     } catch { /* non-blocking */ }
   };
 
+  // Build a delta map from old → new line items (positive = stock restored, negative = deducted)
+  const buildDelta = (oldItems: LineItem[], newItems: LineItem[]): Record<string, number> => {
+    const delta: Record<string, number> = {};
+    // Restore old quantities
+    for (const item of oldItems) {
+      if (item.product) delta[item.product] = (delta[item.product] ?? 0) + item.qty;
+    }
+    // Deduct new quantities
+    for (const item of newItems) {
+      if (item.product) delta[item.product] = (delta[item.product] ?? 0) - item.qty;
+    }
+    return delta;
+  };
+
   const handleSave = async () => {
     if (!formCustomer.trim()) { toast.error("Select a customer"); return; }
     const validItems = lineItems.filter((i) => i.product.trim());
     if (validItems.length === 0) { toast.error("Add at least one item"); return; }
 
-    // Stock check — warn if any item exceeds available stock
+    // For edits, the effective available stock = current stock + what the old order already consumed
+    const oldItems = editingId
+      ? (orders.find((o) => o.id === editingId)?.lineItems ?? []).filter((i) => i.product.trim())
+      : [];
+
+    // Build per-product effective available stock for warnings
+    const effectiveStock: Record<string, number> = {};
+    for (const p of allProducts) {
+      effectiveStock[p.name] = p.stock;
+    }
+    // Add back old quantities so edit warnings are accurate
+    for (const item of oldItems) {
+      if (item.product) effectiveStock[item.product] = (effectiveStock[item.product] ?? 0) + item.qty;
+    }
+
     const stockWarnings: string[] = [];
     for (const item of validItems) {
-      const product = allProducts.find((p) => p.name === item.product);
-      if (product && item.qty > product.stock) {
-        stockWarnings.push(`${item.product}: ordered ${item.qty}, only ${product.stock} in stock`);
+      const available = effectiveStock[item.product] ?? 0;
+      if (item.qty > available) {
+        stockWarnings.push(`${item.product}: ordered ${item.qty}, only ${available} available`);
       }
     }
     if (stockWarnings.length > 0) {
@@ -184,11 +213,13 @@ const Orders = () => {
     try {
       if (editingId) {
         await updateOrder(editingId, { customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+        // Net delta: restore old quantities, deduct new quantities
+        await applyStockDelta(buildDelta(oldItems, validItems));
         toast.success("Order updated");
       } else {
         await addOrder({ customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
-        // Deduct stock only on new orders, not edits
-        await deductStock(validItems);
+        // New order: purely deduct
+        await applyStockDelta(buildDelta([], validItems));
         toast.success("Order created");
       }
       closeDialog();
