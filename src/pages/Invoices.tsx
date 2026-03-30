@@ -149,24 +149,32 @@ const Invoices = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.customer || formData.amount <= 0) {
       toast.error("Please fill in all required fields");
       return;
     }
-    if (editingId) {
-      updateInvoice(editingId, formData);
-      toast.success("Invoice updated successfully");
-    } else {
-      addInvoice(formData);
-      toast.success("Invoice created successfully");
+    try {
+      if (editingId) {
+        await updateInvoice(editingId, formData);
+        toast.success("Invoice updated successfully");
+      } else {
+        await addInvoice(formData);
+        toast.success("Invoice created successfully");
+      }
+      handleCloseDialog();
+    } catch {
+      toast.error("Failed to save invoice. Please try again.");
     }
-    handleCloseDialog();
   };
 
-  const handleDelete = (id: string) => {
-    deleteInvoice(id);
-    toast.success("Invoice deleted");
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteInvoice(id);
+      toast.success("Invoice deleted");
+    } catch {
+      toast.error("Failed to delete invoice.");
+    }
   };
 
   const customerNames = customers.map((c) => c.name);

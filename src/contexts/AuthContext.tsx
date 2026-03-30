@@ -11,7 +11,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ ok: boolean; message: string }>;
   register: (username: string, email: string, password: string, name: string) => Promise<boolean>;
   logout: () => void;
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
@@ -71,13 +71,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Login ────────────────────────────────────────────────────────────────
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ ok: boolean; message: string }> => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error && data.user) return true;
-      // If error is invalid credentials, return false
-      if (error?.message?.includes("Invalid login")) return false;
-      // Otherwise fall through to local fallback
+      if (!error && data.user) return { ok: true, message: "" };
+
+      // Return the real Supabase error so the UI can display it
+      if (error) {
+        const msg = error.message || "Login failed";
+        if (msg.toLowerCase().includes("email not confirmed") || msg.toLowerCase().includes("not confirmed")) {
+          return { ok: false, message: "Your email is not verified. Please check your inbox for a confirmation link, or use Forgot Password to resend." };
+        }
+        if (msg.toLowerCase().includes("invalid login") || msg.toLowerCase().includes("invalid credentials")) {
+          return { ok: false, message: "Incorrect email or password. Please try again." };
+        }
+        return { ok: false, message: msg };
+      }
     }
 
     // Local fallback — accept email or username
@@ -89,9 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { password: _p, ...userWithoutPassword } = found;
       setUser(userWithoutPassword);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword));
-      return true;
+      return { ok: true, message: "" };
     }
-    return false;
+    return { ok: false, message: "Incorrect email or password. Please try again." };
   };
 
   // ── Register ─────────────────────────────────────────────────────────────

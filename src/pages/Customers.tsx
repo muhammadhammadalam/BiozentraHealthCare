@@ -80,24 +80,32 @@ const Customers = () => {
     setFormData(emptyCustomer);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.contact || !formData.email) {
       toast.error("Please fill in all required fields");
       return;
     }
-    if (editingId != null) {
-      updateCustomer(editingId, formData);
-      toast.success("Customer updated successfully");
-    } else {
-      addCustomer(formData);
-      toast.success("Customer added successfully");
+    try {
+      if (editingId != null) {
+        await updateCustomer(editingId, formData);
+        toast.success("Customer updated successfully");
+      } else {
+        await addCustomer(formData);
+        toast.success("Customer added successfully");
+      }
+      handleCloseDialog();
+    } catch {
+      toast.error("Failed to save customer. Please try again.");
     }
-    handleCloseDialog();
   };
 
-  const handleDelete = (id: number) => {
-    deleteCustomer(id);
-    toast.success("Customer deleted");
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteCustomer(id);
+      toast.success("Customer deleted");
+    } catch {
+      toast.error("Failed to delete customer.");
+    }
   };
 
   return (

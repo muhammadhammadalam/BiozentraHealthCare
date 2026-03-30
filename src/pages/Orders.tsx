@@ -128,27 +128,35 @@ const Orders = () => {
   const removeItem = (id: string) =>
     setLineItems((prev) => (prev.length > 1 ? prev.filter((i) => i.id !== id) : prev));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formCustomer.trim()) { toast.error("Select a customer"); return; }
     const validItems = lineItems.filter((i) => i.product.trim());
     if (validItems.length === 0) { toast.error("Add at least one item"); return; }
     const products = lineItemsToString(validItems);
-    const total = grandTotal; // save the discounted total
+    const total = grandTotal;
 
-    if (editingId) {
-      updateOrder(editingId, { customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
-      toast.success("Order updated");
-    } else {
-      addOrder({ customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
-      toast.success("Order created");
+    try {
+      if (editingId) {
+        await updateOrder(editingId, { customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+        toast.success("Order updated");
+      } else {
+        await addOrder({ customer: formCustomer, products, total, status: formStatus, date: formDate, lineItems: validItems });
+        toast.success("Order created");
+      }
+      closeDialog();
+    } catch {
+      toast.error("Failed to save order. Please try again.");
     }
-    closeDialog();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Delete this order?")) {
-      deleteOrder(id);
-      toast.success("Order deleted");
+      try {
+        await deleteOrder(id);
+        toast.success("Order deleted");
+      } catch {
+        toast.error("Failed to delete order.");
+      }
     }
   };
 
@@ -186,7 +194,7 @@ const Orders = () => {
     setIsInvoiceOpen(true);
   };
 
-  const handleIssueInvoice = (downloadNow: boolean) => {
+  const handleIssueInvoice = async (downloadNow: boolean) => {
     if (!invoiceSource) return;
     const invoiceData = {
       customer: invoiceSource.customer,
@@ -195,7 +203,12 @@ const Orders = () => {
       amount: invTotal,
       status: invStatus,
     };
-    addInvoice(invoiceData);
+    try {
+      await addInvoice(invoiceData);
+    } catch {
+      toast.error("Failed to save invoice.");
+      return;
+    }
 
     if (downloadNow) {
       const tempId = `INV-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase().slice(-4)}`;

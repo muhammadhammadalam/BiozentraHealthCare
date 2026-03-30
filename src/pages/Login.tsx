@@ -30,9 +30,9 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const success = await login(loginData.email, loginData.password);
-      if (success) { toast.success("Welcome back!"); navigate("/"); }
-      else toast.error("Invalid email or password");
+      const result = await login(loginData.email, loginData.password);
+      if (result.ok) { toast.success("Welcome back!"); navigate("/"); }
+      else toast.error(result.message || "Login failed. Please try again.");
     } catch { toast.error("Login failed. Please try again."); }
     finally { setIsLoading(false); }
   };

@@ -97,24 +97,32 @@ const Products = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) { toast.error("Product name is required"); return; }
     if (!formData.category)    { toast.error("Category is required"); return; }
     if (formData.price <= 0)   { toast.error("Price must be greater than 0"); return; }
 
-    if (editingId != null) {
-      updateProduct(editingId, formData);
-      toast.success("Product updated");
-    } else {
-      addProduct(formData);
-      toast.success("Product added");
+    try {
+      if (editingId != null) {
+        await updateProduct(editingId, formData);
+        toast.success("Product updated");
+      } else {
+        await addProduct(formData);
+        toast.success("Product added");
+      }
+      handleCloseDialog();
+    } catch {
+      toast.error("Failed to save product. Please try again.");
     }
-    handleCloseDialog();
   };
 
-  const handleDelete = (id: number) => {
-    deleteProduct(id);
-    toast.success("Product deleted");
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteProduct(id);
+      toast.success("Product deleted");
+    } catch {
+      toast.error("Failed to delete product.");
+    }
   };
 
   // The value to show in the Select when dialog opens
