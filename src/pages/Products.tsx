@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,11 +30,10 @@ const categories = [
 interface ProductFormData {
   name: string;
   category: string;
-  stock: number;
   price: number;
 }
 
-const emptyProduct: ProductFormData = { name: "", category: "", stock: 0, price: 0 };
+const emptyProduct: ProductFormData = { name: "", category: "", price: 0 };
 
 const Products = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useData();
@@ -62,7 +60,7 @@ const Products = () => {
       const product = products.find((p) => p.id === productId);
       if (product) {
         setEditingId(productId);
-        setFormData({ name: product.name, category: product.category, stock: product.stock, price: product.price });
+        setFormData({ name: product.name, category: product.category, price: product.price });
         // If the name isn't in the catalog, show as custom
         setIsCustomName(!(product.name in CATALOG_MAP));
       }
@@ -104,10 +102,10 @@ const Products = () => {
 
     try {
       if (editingId != null) {
-        await updateProduct(editingId, formData);
+        await updateProduct(editingId, { name: formData.name, category: formData.category, price: formData.price });
         toast.success("Product updated");
       } else {
-        await addProduct(formData);
+        await addProduct({ name: formData.name, category: formData.category, price: formData.price, stock: 0 });
         toast.success("Product added");
       }
       handleCloseDialog();
@@ -173,9 +171,7 @@ const Products = () => {
                 <TableRow>
                   <TableHead>Product Name</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Price</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -188,17 +184,7 @@ const Products = () => {
                   >
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.category}</TableCell>
-                    <TableCell className="text-right">{product.stock}</TableCell>
                     <TableCell className="text-right">Rs. {product.price.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        product.status === "In Stock" ? "default"
-                        : product.status === "Low Stock" ? "secondary"
-                        : "destructive"
-                      }>
-                        {product.status}
-                      </Badge>
-                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(product.id)}>
@@ -289,14 +275,6 @@ const Products = () => {
                   {categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* ── Stock ── */}
-            <div className="grid gap-2">
-              <Label>Stock Quantity</Label>
-              <Input inputMode="numeric" placeholder="0"
-                value={formData.stock === 0 ? "" : formData.stock.toString()}
-                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })} />
             </div>
 
             {/* ── Price — auto-filled from catalog, always editable ── */}
