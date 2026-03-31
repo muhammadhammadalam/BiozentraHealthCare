@@ -289,8 +289,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateOrder = async (id: string, order: Partial<Order>) => {
-    const { lineItems, ...rest } = order;
-    const dbUpdate = { ...rest, ...(lineItems !== undefined ? { line_items: lineItems } : {}) };
+    const { lineItems, discountPct, ...rest } = order;
+    const dbUpdate = {
+      ...rest,
+      ...(lineItems    !== undefined ? { line_items:   lineItems    } : {}),
+      ...(discountPct  !== undefined ? { discount_pct: discountPct  } : {}),
+    };
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from("orders").update(dbUpdate).eq("id", id);
       if (error) { console.error("updateOrder:", error); throw error; }
@@ -381,8 +385,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateInvoice = async (id: string, invoice: Partial<Invoice>) => {
-    const { dueDate, ...rest } = invoice;
-    const dbUpdate = { ...rest, ...(dueDate !== undefined ? { due_date: dueDate } : {}) };
+    const { dueDate, discountPct, ...rest } = invoice;
+    const dbUpdate = {
+      ...rest,
+      ...(dueDate     !== undefined ? { due_date:     dueDate     } : {}),
+      ...(discountPct !== undefined ? { discount_pct: discountPct } : {}),
+    };
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from("invoices").update(dbUpdate).eq("id", id);
       if (error) { console.error("updateInvoice:", error); throw error; }
