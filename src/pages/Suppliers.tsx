@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Building2, Phone, Mail, Package, Pencil, Trash2, Truck } from "lucide-react";
+import { Search, Plus, Building2, Phone, Package, Pencil, Trash2, Truck } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -28,7 +28,6 @@ interface Supplier {
   id: number;
   name: string;
   contact: string;
-  email: string;
   phone: string;
   products: number;
   status: string;
@@ -38,7 +37,6 @@ interface Supplier {
 const emptySupplier: Omit<Supplier, "id"> = {
   name: "",
   contact: "",
-  email: "",
   phone: "",
   products: 0,
   status: "Active",
@@ -78,7 +76,6 @@ const Suppliers = () => {
       setFormData({
         name: supplier.name,
         contact: supplier.contact,
-        email: supplier.email,
         phone: supplier.phone,
         products: supplier.products,
         status: supplier.status,
@@ -98,7 +95,7 @@ const Suppliers = () => {
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.contact || !formData.email) {
+    if (!formData.name || !formData.contact) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -206,12 +203,6 @@ const Suppliers = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {supplier.email && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <span className="truncate">{supplier.email}</span>
-                    </div>
-                  )}
                   {supplier.phone && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Phone className="h-4 w-4" />
@@ -253,15 +244,6 @@ const Suppliers = () => {
                 value={formData.contact}
                 onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
                 placeholder="Enter contact person name"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Email *</Label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="Enter email address"
               />
             </div>
             <div className="grid gap-2">

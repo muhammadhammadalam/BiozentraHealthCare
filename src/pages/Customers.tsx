@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Mail, Phone, MapPin, Pencil, Trash2, Users } from "lucide-react";
+import { Search, Plus, Phone, MapPin, Pencil, Trash2, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -20,7 +20,6 @@ import { useData } from "@/contexts/DataContext";
 interface CustomerFormData {
   name: string;
   contact: string;
-  email: string;
   phone: string;
   location: string;
   orders: number;
@@ -30,7 +29,6 @@ interface CustomerFormData {
 const emptyCustomer: CustomerFormData = {
   name: "",
   contact: "",
-  email: "",
   phone: "",
   location: "",
   orders: 0,
@@ -60,7 +58,6 @@ const Customers = () => {
         setFormData({
           name: customer.name,
           contact: customer.contact,
-          email: customer.email,
           phone: customer.phone,
           location: customer.location,
           orders: customer.orders,
@@ -81,7 +78,7 @@ const Customers = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.contact || !formData.email) {
+    if (!formData.name || !formData.contact) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -190,12 +187,6 @@ const Customers = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {customer.email && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{customer.email}</span>
-                    </div>
-                  )}
                   {customer.phone && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Phone className="h-4 w-4 flex-shrink-0" />
@@ -248,16 +239,6 @@ const Customers = () => {
                 value={formData.contact}
                 onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
                 placeholder="Enter contact person name"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="Enter email address"
               />
             </div>
             <div className="grid gap-2">

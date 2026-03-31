@@ -34,7 +34,6 @@ export interface Customer {
   id: number;
   name: string;
   contact: string;
-  email: string;
   phone: string;
   location: string;
   orders: number;
@@ -119,7 +118,6 @@ function mapCustomer(row: any): Customer {
     id: Number(row.id),
     name: row.name,
     contact: row.contact || "",
-    email: row.email || "",
     phone: row.phone || "",
     location: row.location || row.city || "",
     orders: Number(row.orders) || 0,
@@ -320,7 +318,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.from("customers").insert([{
         name: customer.name,
         contact: customer.contact,
-        email: customer.email,
         phone: customer.phone,
         location: customer.location,
         city: customer.location,
