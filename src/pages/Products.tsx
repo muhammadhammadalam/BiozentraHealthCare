@@ -31,9 +31,10 @@ interface ProductFormData {
   name: string;
   category: string;
   price: number;
+  costPrice: number;
 }
 
-const emptyProduct: ProductFormData = { name: "", category: "", price: 0 };
+const emptyProduct: ProductFormData = { name: "", category: "", price: 0, costPrice: 0 };
 
 const Products = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useData();
@@ -60,7 +61,7 @@ const Products = () => {
       const product = products.find((p) => p.id === productId);
       if (product) {
         setEditingId(productId);
-        setFormData({ name: product.name, category: product.category, price: product.price });
+        setFormData({ name: product.name, category: product.category, price: product.price, costPrice: product.costPrice ?? 0 });
         // If the name isn't in the catalog, show as custom
         setIsCustomName(!(product.name in CATALOG_MAP));
       }
@@ -102,10 +103,10 @@ const Products = () => {
 
     try {
       if (editingId != null) {
-        await updateProduct(editingId, { name: formData.name, category: formData.category, price: formData.price });
+        await updateProduct(editingId, { name: formData.name, category: formData.category, price: formData.price, costPrice: formData.costPrice });
         toast.success("Product updated");
       } else {
-        await addProduct({ name: formData.name, category: formData.category, price: formData.price, stock: 0 });
+        await addProduct({ name: formData.name, category: formData.category, price: formData.price, costPrice: formData.costPrice, stock: 0 });
         toast.success("Product added");
       }
       handleCloseDialog();
@@ -171,7 +172,8 @@ const Products = () => {
                 <TableRow>
                   <TableHead>Product Name</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Cost Price</TableHead>
+                  <TableHead className="text-right">Sale Price</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -184,6 +186,7 @@ const Products = () => {
                   >
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.category}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Rs. {(product.costPrice ?? 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right">Rs. {product.price.toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -277,7 +280,16 @@ const Products = () => {
               </Select>
             </div>
 
-            {/* ── Price — auto-filled from catalog, always editable ── */}
+            {/* ── Cost Price ── */}
+            <div className="space-y-1.5">
+              <Label>Cost Price (Rs.) — what you pay</Label>
+              <Input
+                type="number" min="0" placeholder="0"
+                value={formData.costPrice === 0 ? "" : formData.costPrice.toString()}
+                onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })} />
+            </div>
+
+            {/* ── Selling Price — auto-filled from catalog, always editable ── */}
             <div className="grid gap-2">
               <Label>Price (Rs.) *</Label>
               <Input inputMode="numeric" placeholder="0.00"

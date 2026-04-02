@@ -70,8 +70,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored) setUser(JSON.parse(stored));
   }, []);
 
+  // ── Domain guard (shared by login + register) ────────────────────────────
+  const ALLOWED_DOMAIN = (import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN as string | undefined)?.toLowerCase() || "biozentra.com";
+  const isAllowedEmail = (email: string) =>
+    email.split("@")[1]?.toLowerCase() === ALLOWED_DOMAIN;
+
   // ── Login ────────────────────────────────────────────────────────────────
   const login = async (email: string, password: string): Promise<{ ok: boolean; message: string }> => {
+    if (!isAllowedEmail(email)) {
+      return { ok: false, message: `Only @${ALLOWED_DOMAIN} email addresses are permitted to access this system.` };
+    }
+
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (!error && data.user) return { ok: true, message: "" };
@@ -110,15 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string
   ): Promise<boolean> => {
-    // Option D: domain whitelist — if VITE_ALLOWED_EMAIL_DOMAIN is set,
-    // only emails from that domain are allowed to register.
-    const allowedDomain = import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN as string | undefined;
-    if (allowedDomain) {
-      const emailDomain = email.split("@")[1]?.toLowerCase();
-      if (emailDomain !== allowedDomain.toLowerCase()) {
-        console.warn("Registration blocked: unauthorised email domain.");
-        return false;
-      }
+    // Domain whitelist — only @biozentra.com addresses may register.
+    if (!isAllowedEmail(email)) {
+      console.warn("Registration blocked: unauthorised email domain.");
+      return false;
     }
 
     if (isSupabaseConfigured && supabase) {

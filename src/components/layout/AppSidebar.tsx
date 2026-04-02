@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Wallet,
+  LineChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ export function AppSidebar() {
         { title: "Orders", icon: ShoppingCart, href: "/orders", badge: pendingOrdersCount || undefined },
         { title: "Invoices", icon: Receipt, href: "/invoices" },
         { title: "Expenses", icon: Wallet, href: "/expenses" },
+        { title: "Profit & Loss", icon: LineChart, href: "/profit-loss" },
       ],
     },
     {

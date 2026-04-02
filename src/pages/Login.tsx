@@ -109,7 +109,7 @@ export default function Login() {
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label>Email address</Label>
-                    <Input type="email" placeholder="your@email.com" required
+                    <Input type="email" placeholder="name@biozentra.com" required
                       value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="h-10" />
                   </div>
                   <Button type="submit" className="w-full h-10 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" disabled={isLoading}>
@@ -153,7 +153,7 @@ export default function Login() {
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label>Email address</Label>
-                    <Input type="email" placeholder="your@email.com" required
+                    <Input type="email" placeholder="name@biozentra.com" required
                       value={loginData.email}
                       onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                       className="h-10" />

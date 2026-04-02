@@ -9,6 +9,7 @@ export interface Product {
   category: string;
   stock: number;
   price: number;
+  costPrice: number;
   status: string;
 }
 
@@ -131,6 +132,7 @@ function mapProduct(row: any): Product {
     name: row.name,
     category: row.category || "",
     price: Number(row.price) || 0,
+    costPrice: Number(row.cost_price) || 0,
     stock: Number(row.stock) || 0,
     status: row.status || getProductStatus(Number(row.stock) || 0),
   };
@@ -230,7 +232,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const status = getProductStatus(product.stock);
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from("products")
-        .insert([{ name: product.name, category: product.category, stock: product.stock, price: product.price, status }])
+        .insert([{ name: product.name, category: product.category, stock: product.stock, price: product.price, cost_price: product.costPrice ?? 0, status }])
         .select()
         .single();
       if (error) { console.error("addProduct:", error); throw error; }
@@ -246,7 +248,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateProduct = async (id: number, product: Partial<Product>) => {
     const extra = product.stock !== undefined ? { status: getProductStatus(product.stock) } : {};
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from("products").update({ ...product, ...extra }).eq("id", id);
+      const { costPrice, ...rest } = product;
+      const dbUpdate = {
+        ...rest,
+        ...extra,
+        ...(costPrice !== undefined ? { cost_price: costPrice } : {}),
+      };
+      const { error } = await supabase.from("products").update(dbUpdate).eq("id", id);
       if (error) { console.error("updateProduct:", error); throw error; }
       setProducts(prev => prev.map(p => p.id === id ? { ...p, ...product, ...extra } : p));
     } else {
