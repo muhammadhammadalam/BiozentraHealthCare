@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Domain guard (shared by login + register) ────────────────────────────
-  const ALLOWED_DOMAIN = (import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN as string | undefined)?.toLowerCase() || "biozentra.com";
+  const ALLOWED_DOMAIN = (import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN as string | undefined)?.toLowerCase() || "biozentra.pk";
   const isAllowedEmail = (email: string) =>
     email.split("@")[1]?.toLowerCase() === ALLOWED_DOMAIN;
 
