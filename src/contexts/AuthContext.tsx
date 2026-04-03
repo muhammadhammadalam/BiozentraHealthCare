@@ -24,7 +24,7 @@ const USERS_KEY = "biozentra-users";
 const CURRENT_USER_KEY = "biozentra-current-user";
 
 const defaultUsers = [
-  { id: "1", username: "admin", email: "admin@biozentra.com", password: "admin123", name: "Admin User" },
+  { id: "1", username: "admin", email: "admin@biozentra.pk", password: "admin123", name: "Admin User" },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string
   ): Promise<boolean> => {
-    // Domain whitelist — only @biozentra.com addresses may register.
+    // Domain whitelist — only @biozentra.pk addresses may register.
     if (!isAllowedEmail(email)) {
       console.warn("Registration blocked: unauthorised email domain.");
       return false;

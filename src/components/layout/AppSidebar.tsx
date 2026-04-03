@@ -20,15 +20,20 @@ import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import { useData } from "@/contexts/DataContext";
 
+function loadStockItems() {
+  try { return JSON.parse(localStorage.getItem("biozentra-stock") || "[]"); } catch { return []; }
+}
+
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { orders, products } = useData();
+  const { orders } = useData();
 
   // Dynamic badge counts
   const pendingOrdersCount = orders.filter((o) => o.status === "Pending").length;
-  const lowStockCount = products.filter(
-    (p) => p.status === "Low Stock" || p.status === "Out of Stock"
+  const stockItems = loadStockItems();
+  const lowStockCount = stockItems.filter(
+    (i: any) => i.status === "Low" || i.status === "Out"
   ).length;
 
   const navigation = [

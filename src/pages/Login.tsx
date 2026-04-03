@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, LogIn, Mail, ArrowLeft } from "lucide-react";
@@ -14,6 +14,18 @@ type View = "auth" | "forgot" | "forgot-sent";
 export default function Login() {
   const navigate = useNavigate();
   const { login, forgotPassword } = useAuth();
+
+  // Always force light mode on the login screen regardless of dashboard theme
+  useEffect(() => {
+    const root = document.documentElement;
+    const prev = root.classList.contains("dark") ? "dark" : root.classList.contains("light") ? "light" : null;
+    root.classList.remove("dark", "light");
+    root.classList.add("light");
+    return () => {
+      root.classList.remove("light");
+      if (prev) root.classList.add(prev);
+    };
+  }, []);
 
   const [view, setView] = useState<View>("auth");
   const [showPassword, setShowPassword] = useState(false);
