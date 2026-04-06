@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Package,
+  Archive,
   Users,
   Truck,
   Receipt,
@@ -17,6 +18,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import logo from "@/assets/logo.png";
 import { useData } from "@/contexts/DataContext";
 
@@ -57,7 +64,7 @@ export function AppSidebar() {
       label: "Inventory",
       items: [
         { title: "Products", icon: Package, href: "/products" },
-        { title: "Stock", icon: Package, href: "/stock", badge: lowStockCount || undefined },
+        { title: "Stock", icon: Archive, href: "/stock", badge: lowStockCount || undefined },
       ],
     },
     {
@@ -101,99 +108,136 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {navigation.map((group, groupIndex) => (
-          <div key={group.label} className={cn("mb-6", groupIndex > 0 && "mt-6")}>
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                >
-                  {group.label}
-                </motion.p>
-              )}
-            </AnimatePresence>
-
-            <div className="space-y-1">
-              {group.items.map((item) => {
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    className={cn(
-                      "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                      isActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                    )}
+      <TooltipProvider delayDuration={100}>
+        <nav className="sidebar-nav-scroll flex-1 overflow-y-auto px-3 py-4">
+          {navigation.map((group, groupIndex) => (
+            <div key={group.label} className={cn("mb-6", groupIndex > 0 && "mt-6")}>
+              <AnimatePresence>
+                {!collapsed && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeIndicator"
-                        className="absolute left-0 h-full w-1 rounded-r-full bg-sidebar-primary"
-                        transition={{ duration: 0.2 }}
-                      />
-                    )}
-                    <item.icon
+                    {group.label}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  const linkEl = (
+                    <Link
+                      key={item.href}
+                      to={item.href}
                       className={cn(
-                        "h-5 w-5 shrink-0 transition-colors",
+                        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                         isActive
-                          ? "text-sidebar-primary"
-                          : "text-muted-foreground group-hover:text-sidebar-foreground"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
                       )}
-                    />
-                    <AnimatePresence>
-                      {!collapsed && (
+                    >
+                      {isActive && (
+                        <motion.div
+                          layoutId="activeIndicator"
+                          className="absolute left-0 h-full w-1 rounded-r-full bg-sidebar-primary"
+                          transition={{ duration: 0.2 }}
+                        />
+                      )}
+                      <item.icon
+                        className={cn(
+                          "h-5 w-5 shrink-0 transition-colors",
+                          isActive
+                            ? "text-sidebar-primary"
+                            : "text-muted-foreground group-hover:text-sidebar-foreground"
+                        )}
+                      />
+                      <AnimatePresence>
+                        {!collapsed && (
+                          <motion.span
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            className="flex-1"
+                          >
+                            {item.title}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                      {item.badge != null && item.badge > 0 && !collapsed && (
                         <motion.span
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          className="flex-1"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground"
                         >
-                          {item.title}
+                          {item.badge}
                         </motion.span>
                       )}
-                    </AnimatePresence>
-                    {item.badge != null && item.badge > 0 && !collapsed && (
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground"
-                      >
-                        {item.badge}
-                      </motion.span>
-                    )}
-                  </Link>
-                );
-              })}
+                      {item.badge != null && item.badge > 0 && collapsed && (
+                        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />
+                      )}
+                    </Link>
+                  );
+
+                  return collapsed ? (
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
+                      <TooltipContent side="right" className="flex items-center gap-2">
+                        {item.title}
+                        {item.badge != null && item.badge > 0 && (
+                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">
+                            {item.badge}
+                          </span>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    linkEl
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </nav>
+          ))}
+        </nav>
+      </TooltipProvider>
 
       {/* Settings */}
       <div className="border-t border-sidebar-border p-3">
-        <Link
-          to="/settings"
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50"
-        >
-          <Settings className="h-5 w-5 text-muted-foreground" />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                Settings
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Link>
+        <TooltipProvider delayDuration={100}>
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/settings"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50"
+                >
+                  <Settings className="h-5 w-5 text-muted-foreground" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">Settings</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Link
+              to="/settings"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50"
+            >
+              <Settings className="h-5 w-5 text-muted-foreground" />
+              <AnimatePresence>
+                {!collapsed && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    Settings
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Link>
+          )}
+        </TooltipProvider>
       </div>
 
       {/* Collapse toggle */}

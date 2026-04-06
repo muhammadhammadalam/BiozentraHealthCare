@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Download, Eye, Pencil, Trash2, Receipt } from "lucide-react";
+import { Search, Plus, Download, Eye, Pencil, Trash2, Receipt, Trash } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useData } from "@/contexts/DataContext";
-import { exportSingleInvoicePDF, exportInvoicesToPDF } from "@/utils/pdfExport";
+import { exportSingleInvoicePDF, exportInvoicesToPDF, LineItem } from "@/utils/pdfExport";
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   Paid: "default",
@@ -57,6 +57,13 @@ const emptyInvoice: InvoiceFormData = {
   dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
 };
 
+const emptyLineItem = (): LineItem => ({
+  id: crypto.randomUUID(),
+  product: "",
+  qty: 1,
+  unitPrice: 0,
+});
+
 const Invoices = () => {
   const { invoices, customers, addInvoice, updateInvoice, deleteInvoice } = useData();
 
@@ -66,6 +73,20 @@ const Invoices = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingInvoice, setViewingInvoice] = useState<(typeof invoices)[0] | null>(null);
   const [formData, setFormData] = useState<InvoiceFormData>(emptyInvoice);
+  const [lineItems, setLineItems] = useState<LineItem[]>([emptyLineItem()]);
+  const [discountPct, setDiscountPct] = useState(0);
+
+  // Compute total from line items
+  const lineTotal = lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+  const afterDiscount = lineTotal * (1 - discountPct / 100);
+
+  const addLineItem = () => setLineItems((prev) => [...prev, emptyLineItem()]);
+  const removeLineItem = (id: string) =>
+    setLineItems((prev) => prev.filter((li) => li.id !== id));
+  const updateLineItem = (id: string, field: keyof LineItem, value: string | number) =>
+    setLineItems((prev) =>
+      prev.map((li) => (li.id === id ? { ...li, [field]: value } : li))
+    );
 
   const filteredInvoices = invoices.filter(
     (invoice) =>
@@ -92,10 +113,14 @@ const Invoices = () => {
           date: invoice.date,
           dueDate: invoice.dueDate,
         });
+        setLineItems([emptyLineItem()]);
+        setDiscountPct(0);
       }
     } else {
       setEditingId(null);
       setFormData(emptyInvoice);
+      setLineItems([emptyLineItem()]);
+      setDiscountPct(0);
     }
     setIsDialogOpen(true);
   };
@@ -104,6 +129,8 @@ const Invoices = () => {
     setIsDialogOpen(false);
     setEditingId(null);
     setFormData(emptyInvoice);
+    setLineItems([emptyLineItem()]);
+    setDiscountPct(0);
   };
 
   const handleViewInvoice = (invoice: (typeof invoices)[0]) => {
@@ -111,16 +138,25 @@ const Invoices = () => {
     setIsViewDialogOpen(true);
   };
 
-  const handleDownloadSingle = async (invoice: (typeof invoices)[0]) => {
+  const handleDownloadSingle = async (
+    invoice: (typeof invoices)[0],
+    items?: LineItem[],
+    disc?: number
+  ) => {
     try {
-      await exportSingleInvoicePDF({
-        id: invoice.id,
-        customer: invoice.customer,
-        date: invoice.date,
-        dueDate: invoice.dueDate,
-        amount: invoice.amount,
-        status: invoice.status,
-      });
+      await exportSingleInvoicePDF(
+        {
+          id: invoice.id,
+          customer: invoice.customer,
+          date: invoice.date,
+          dueDate: invoice.dueDate,
+          amount: invoice.amount,
+          status: invoice.status,
+          discountPct: disc,
+        },
+        items && items.some((li) => li.product && li.unitPrice > 0) ? items : undefined,
+        disc
+      );
       toast.success(`Invoice ${invoice.id} downloaded`);
     } catch {
       toast.error("Failed to generate invoice PDF");
@@ -150,16 +186,23 @@ const Invoices = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.customer || formData.amount <= 0) {
-      toast.error("Please fill in all required fields");
+    if (!formData.customer) {
+      toast.error("Please select a customer");
+      return;
+    }
+    const hasLineItems = lineItems.some((li) => li.product && li.unitPrice > 0);
+    const finalAmount = hasLineItems ? Math.round(afterDiscount) : formData.amount;
+    if (finalAmount <= 0) {
+      toast.error("Amount must be greater than zero");
       return;
     }
     try {
+      const payload = { ...formData, amount: finalAmount };
       if (editingId) {
-        await updateInvoice(editingId, formData);
+        await updateInvoice(editingId, payload);
         toast.success("Invoice updated successfully");
       } else {
-        await addInvoice(formData);
+        await addInvoice(payload);
         toast.success("Invoice created successfully");
       }
       handleCloseDialog();
@@ -318,86 +361,194 @@ const Invoices = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Invoice" : "Create New Invoice"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="customer">Customer *</Label>
-              {customerNames.length > 0 ? (
+            {/* Customer + Status + Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2 grid gap-2">
+                <Label>Customer *</Label>
+                {customerNames.length > 0 ? (
+                  <Select
+                    value={formData.customer}
+                    onValueChange={(value) => setFormData({ ...formData, customer: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customerNames.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={formData.customer}
+                    onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
+                    placeholder="Enter customer name"
+                  />
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label>Invoice Date</Label>
+                <Input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Status</Label>
                 <Select
-                  value={formData.customer}
-                  onValueChange={(value) => setFormData({ ...formData, customer: value })}
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select customer" />
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {customerNames.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
+              </div>
+              <div className="grid gap-2">
+                <Label>Discount (%)</Label>
                 <Input
-                  value={formData.customer}
-                  onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-                  placeholder="Enter customer name (add customers first)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={discountPct}
+                  onChange={(e) => setDiscountPct(parseFloat(e.target.value) || 0)}
+                  placeholder="0"
                 />
-              )}
+              </div>
             </div>
+
+            {/* Line Items */}
             <div className="grid gap-2">
-              <Label htmlFor="amount">Amount (Rs.) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                min="0"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })
-                }
-                placeholder="Enter amount"
-              />
+              <div className="flex items-center justify-between">
+                <Label>Line Items</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
+                </Button>
+              </div>
+              <div className="rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-3 py-2 text-left font-medium">Description</th>
+                      <th className="px-3 py-2 text-center font-medium w-16">Qty</th>
+                      <th className="px-3 py-2 text-right font-medium w-28">Unit Price</th>
+                      <th className="px-3 py-2 text-right font-medium w-28">Total</th>
+                      <th className="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lineItems.map((li) => (
+                      <tr key={li.id} className="border-b last:border-0">
+                        <td className="px-2 py-1">
+                          <Input
+                            value={li.product}
+                            onChange={(e) => updateLineItem(li.id, "product", e.target.value)}
+                            placeholder="Product / service"
+                            className="h-8 border-0 shadow-none px-1"
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={li.qty}
+                            onChange={(e) =>
+                              updateLineItem(li.id, "qty", parseInt(e.target.value) || 1)
+                            }
+                            className="h-8 border-0 shadow-none text-center px-1"
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={li.unitPrice}
+                            onChange={(e) =>
+                              updateLineItem(li.id, "unitPrice", parseFloat(e.target.value) || 0)
+                            }
+                            className="h-8 border-0 shadow-none text-right px-1"
+                          />
+                        </td>
+                        <td className="px-3 py-1 text-right font-medium">
+                          {(li.qty * li.unitPrice).toLocaleString()}
+                        </td>
+                        <td className="px-1 py-1">
+                          {lineItems.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => removeLineItem(li.id)}
+                            >
+                              <Trash className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="flex flex-col items-end gap-1 pr-2 pt-1 text-sm">
+                <div className="flex gap-8">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>Rs. {lineTotal.toLocaleString()}</span>
+                </div>
+                {discountPct > 0 && (
+                  <div className="flex gap-8 text-green-600">
+                    <span>Discount ({discountPct}%)</span>
+                    <span>- Rs. {(lineTotal * discountPct / 100).toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex gap-8 font-bold text-base border-t pt-1">
+                  <span>Total</span>
+                  <span>Rs. {Math.round(afterDiscount).toLocaleString()}</span>
+                </div>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="date">Invoice Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-              />
-            </div>
+
+            {/* Manual amount fallback if no line items */}
+            {!lineItems.some((li) => li.product && li.unitPrice > 0) && (
+              <div className="grid gap-2">
+                <Label>Amount (Rs.) — or fill line items above *</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.amount}
+                  onChange={(e) =>
+                    setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })
+                  }
+                  placeholder="Enter total amount"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDialog}>
@@ -449,7 +600,7 @@ const Invoices = () => {
               Close
             </Button>
             {viewingInvoice && (
-              <Button onClick={() => handleDownloadSingle(viewingInvoice)}>
+              <Button onClick={() => handleDownloadSingle(viewingInvoice, undefined, undefined)}>
                 <Download className="h-4 w-4 mr-2" /> Download PDF
               </Button>
             )}

@@ -219,3 +219,12 @@
     opacity: 0.7;
   }
 }
+
+/* Hide sidebar scrollbar while keeping scroll functionality */
+.sidebar-nav-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+.sidebar-nav-scroll::-webkit-scrollbar {
+  display: none; /* Chrome / Safari */
+}

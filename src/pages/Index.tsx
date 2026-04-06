@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DollarSign, ShoppingCart, TrendingUp, Download, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { SalesTrendChart } from "@/components/dashboard/SalesTrendChart";
@@ -7,9 +7,37 @@ import { RevenueExpenseChart } from "@/components/dashboard/RevenueExpenseChart"
 import { RecentOrdersTable } from "@/components/dashboard/RecentOrdersTable";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useData } from "@/contexts/DataContext";
-import { exportOrdersToPDF } from "@/utils/pdfExport";
+import { exportComprehensiveReportPDF } from "@/utils/pdfExport";
 import { toast } from "sonner";
+
+const EXPENSES_KEY = "biozentra-expenses";
+function loadExpenses() {
+  try { return JSON.parse(localStorage.getItem(EXPENSES_KEY) || "[]"); } catch { return []; }
+}
+
+const MONTHS = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December"
+];
+
+const currentYear = new Date().getFullYear();
+const YEARS = [currentYear - 2, currentYear - 1, currentYear].map(String);
 
 function getMonthKey(offset = 0) {
   const d = new Date();
@@ -25,6 +53,11 @@ function calcTrend(current: number, previous: number) {
 
 const Index = () => {
   const { orders, invoices } = useData();
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportType, setReportType] = useState<"monthly" | "annual">("monthly");
+  const [reportMonth, setReportMonth] = useState(MONTHS[new Date().getMonth()]);
+  const [reportYear, setReportYear] = useState(String(currentYear));
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const thisMonth = getMonthKey(0);
   const lastMonth = getMonthKey(-1);
@@ -69,26 +102,62 @@ const Index = () => {
   const revTrend = calcTrend(monthlyRevenue, monthlyRevenueLast);
 
   // ── Download report ───────────────────────────────────────────────────────
-  const handleDownload = async () => {
-    if (orders.length === 0) {
-      toast.error("No orders to download yet");
-      return;
-    }
+  const handleDownload = () => setReportDialogOpen(true);
+
+  const handleGenerateReport = async () => {
+    setGeneratingReport(true);
     try {
-      await exportOrdersToPDF(
-        orders.map(o => ({
+      const expenses = loadExpenses();
+      let period: string;
+      let filterPrefix: string;
+
+      if (reportType === "annual") {
+        period = `Annual ${reportYear}`;
+        filterPrefix = reportYear;
+      } else {
+        const monthIdx = MONTHS.indexOf(reportMonth) + 1;
+        const mm = String(monthIdx).padStart(2, "0");
+        filterPrefix = `${reportYear}-${mm}`;
+        period = `${reportMonth} ${reportYear}`;
+      }
+
+      const filteredOrders = orders.filter(o => o.date?.startsWith(filterPrefix));
+      const filteredInvoices = invoices.filter(i => i.date?.startsWith(filterPrefix));
+      const filteredExpenses = expenses.filter((e: { date: string }) => e.date?.startsWith(filterPrefix));
+
+      await exportComprehensiveReportPDF({
+        period,
+        isAnnual: reportType === "annual",
+        orders: filteredOrders.map(o => ({
           id: o.id,
           customer: o.customer,
           date: o.date,
-          items: 1,
           total: o.total,
           status: o.status,
-        }))
-      );
-      toast.success("Report downloaded!");
+          products: "",
+        })),
+        invoices: filteredInvoices.map(i => ({
+          id: i.id,
+          customer: i.customer,
+          date: i.date,
+          amount: i.amount,
+          status: i.status,
+        })),
+        expenses: filteredExpenses.map((e: { id: string; date: string; category: string; description: string; amount: number }) => ({
+          id: e.id,
+          date: e.date,
+          category: e.category,
+          description: e.description,
+          amount: e.amount,
+        })),
+      });
+      toast.success(`${period} report downloaded!`);
+      setReportDialogOpen(false);
     } catch (err) {
       console.error(err);
       toast.error("Failed to generate report");
+    } finally {
+      setGeneratingReport(false);
     }
   };
 
@@ -218,6 +287,69 @@ const Index = () => {
       </div>
 
       <RecentOrdersTable />
+
+      {/* Report Download Dialog */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Download Report</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Report Type</Label>
+              <Select value={reportType} onValueChange={(v) => setReportType(v as "monthly" | "annual")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly Report</SelectItem>
+                  <SelectItem value="annual">Annual Report</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {reportType === "monthly" && (
+              <div className="grid gap-2">
+                <Label>Month</Label>
+                <Select value={reportMonth} onValueChange={setReportMonth}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label>Year</Label>
+              <Select value={reportYear} onValueChange={setReportYear}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => (
+                    <SelectItem key={y} value={y}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Includes orders, invoices, expenses, and profit &amp; loss summary for the selected period.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateReport} disabled={generatingReport}>
+              <Download className="h-4 w-4 mr-2" />
+              {generatingReport ? "Generating..." : "Download PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Bell, Globe, Trash2 } from "lucide-react";
+import { Building2, Bell, Globe, Trash2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const SETTINGS_KEY = "biozentra-settings";
 
@@ -94,6 +95,14 @@ const currencies = [
 
 const Settings = () => {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  const { resetPassword } = useAuth();
+
+  // Change password state
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [changingPw, setChangingPw] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -102,6 +111,32 @@ const Settings = () => {
   const handleSaveCompany = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     toast.success("Company settings saved successfully");
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setChangingPw(true);
+    try {
+      const result = await resetPassword(newPassword);
+      if (result.success) {
+        toast.success("Password changed successfully");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast.error(result.message || "Failed to change password");
+      }
+    } catch {
+      toast.error("Failed to change password");
+    } finally {
+      setChangingPw(false);
+    }
   };
 
   const handleClearAllData = () => {
@@ -318,6 +353,68 @@ const Settings = () => {
                   }
                 />
               </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Change Password */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+        >
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Lock className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle>Change Password</CardTitle>
+                  <CardDescription>Update your account password</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>New Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showNew ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew(!showNew)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showConfirm ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <Button onClick={handleChangePassword} disabled={changingPw}>
+                {changingPw ? "Changing..." : "Change Password"}
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
