@@ -47,7 +47,7 @@ function loadCompanyInfo(): CompanyInfo {
       const s = JSON.parse(stored);
       return {
         companyName: s.companyName || "BIOZENTRA Healthcare",
-        address:     s.address    || "S-990, Block I, Saadi Garden, CDA Scheme 33, Karachi",
+        address:     s.address    || "R-690, Block I, Saadi Garden, CDA Scheme 33, Karachi",
         city:        s.city       || "Karachi",
         country:     s.country    || "Pakistan",
         email:       s.email      || "info@biozentra.pk",
@@ -58,7 +58,7 @@ function loadCompanyInfo(): CompanyInfo {
   } catch { /* ignore */ }
   return {
     companyName: "BIOZENTRA Healthcare",
-    address:     "S-990, Block I, Saadi Garden, CDA Scheme 33, Karachi",
+    address:     "R-690, Block I, Saadi Garden, CDA Scheme 33, Karachi",
     city:        "Karachi",
     country:     "Pakistan",
     email:       "info@biozentra.pk",
@@ -302,7 +302,7 @@ export const exportInvoicesToPDF = async (invoices: InvoiceExport[]) => {
   doc.save(`biozentra-invoices-${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
-// ── Single Invoice PDF — Sample Layout ───────────────────────────────────────
+// ── Single Invoice PDF — matches the exact uploaded Biozentra template ────────
 export const exportSingleInvoicePDF = async (
   invoice: InvoiceExport,
   lineItems?: LineItem[],
@@ -314,275 +314,265 @@ export const exportSingleInvoicePDF = async (
   const curr    = company.currency || "PKR";
   const W       = doc.internal.pageSize.width;   // 210
   const H       = doc.internal.pageSize.height;  // 297
-  const ML      = 12;  // margin left
-  const MR      = 12;  // margin right
-  const CW      = W - ML - MR; // content width = 186
+  const ML      = 14;
+  const MR      = 14;
+  const CW      = W - ML - MR; // 182
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // 1. WATERMARK (faint logo behind content)
-  // ════════════════════════════════════════════════════════════════════════════
+  // ── Template colours ──────────────────────────────────────────────────────
+  const GRN:       [number,number,number] = [15, 100, 50];   // dark green bars
+  const NAVY:      [number,number,number] = [30,  52, 110];  // table header navy
+  const BLUE_BG:   [number,number,number] = [210, 218, 245]; // totals box blue
+  const TXT_DARK:  [number,number,number] = [20,  24,  28];
+  const TXT_GREY:  [number,number,number] = [130, 140, 150];
+  const BORDER:    [number,number,number] = [190, 195, 205];
+
+  // ════════════════════════════════════════════════════════════════════════
+  // WATERMARK — two large faint logo impressions across the page
+  // ════════════════════════════════════════════════════════════════════════
   if (logoB64) {
     try {
-      doc.addImage(logoB64, "PNG", W * 0.15, H * 0.18, W * 0.70, H * 0.60);
-      doc.setFillColor(255, 255, 255);
-      doc.setGState(doc.GState({ opacity: 0.88 }));
-      doc.rect(W * 0.15, H * 0.18, W * 0.70, H * 0.60, "F");
+      doc.setGState(doc.GState({ opacity: 0.06 }));
+      doc.addImage(logoB64, "PNG", W * 0.38, H * 0.08, W * 0.55, H * 0.52);
+      doc.addImage(logoB64, "PNG", -8,       H * 0.44, W * 0.48, H * 0.38);
       doc.setGState(doc.GState({ opacity: 1 }));
     } catch { /* skip */ }
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // 2. HEADER — matches image: logo left, green block right, thin top bar
-  // ════════════════════════════════════════════════════════════════════════════
-  const HEADER_H    = 42;   // total header height
-  const TOP_BAR_H   = 5;    // thin green bar at very top
-  const GREEN_BLK_W = 55;   // dark-green rectangle width on right
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 1 — TOP GREEN BAR: contact info in white text
+  // ════════════════════════════════════════════════════════════════════════
+  const TOP_H = 11;
+  doc.setFillColor(...GRN);
+  doc.rect(0, 0, W, TOP_H, "F");
 
-  // Thin green bar at top
-  doc.setFillColor(...GREEN_DARK);
-  doc.rect(0, 0, W, TOP_BAR_H, "F");
+  const phone = company.phone || "+92 321 9221901";
+  const email = company.email || "info@biozentra.pk";
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text(
+    `${phone}     ${email}     www.biozentra.pk`,
+    W / 2, TOP_H * 0.68,
+    { align: "center" }
+  );
 
-  // White header background
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 2 — WHITE HEADER: logo + "BIOZENTRA / HEALTHCARE"
+  // ════════════════════════════════════════════════════════════════════════
+  const HDR_H = 42;
   doc.setFillColor(255, 255, 255);
-  doc.rect(0, TOP_BAR_H, W - GREEN_BLK_W, HEADER_H - TOP_BAR_H, "F");
+  doc.rect(0, TOP_H, W, HDR_H, "F");
 
-  // Dark green rectangle (right side of header)
-  doc.setFillColor(...GREEN_DARK);
-  doc.rect(W - GREEN_BLK_W, TOP_BAR_H, GREEN_BLK_W, HEADER_H - TOP_BAR_H, "F");
-
-  // Logo (large, top-left)
+  const LOGO_SZ = 28;
+  const LOGO_X  = ML;
+  const LOGO_Y  = TOP_H + (HDR_H - LOGO_SZ) / 2;
   if (logoB64) {
-    try { doc.addImage(logoB64, "PNG", ML, TOP_BAR_H + 2, 28, 28); } catch { /* skip */ }
+    try { doc.addImage(logoB64, "PNG", LOGO_X, LOGO_Y, LOGO_SZ, LOGO_SZ); } catch { /* skip */ }
   }
 
-  // "BIOZENTRA" on one line, "HEALTHCARE" on next — bold, dark
+  const TXT_X = LOGO_X + LOGO_SZ + 3;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(10, 10, 10);
-  doc.text("BIOZENTRA", ML + 31, TOP_BAR_H + 13);
-  doc.setFontSize(13);
-  doc.text("HEALTHCARE", ML + 31, TOP_BAR_H + 24);
+  doc.setFontSize(16);
+  doc.setTextColor(15, 82, 40);
+  doc.text("BIOZENTRA", TXT_X, TOP_H + 20);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(70, 70, 70);
+  doc.text("HEALTHCARE", TXT_X, TOP_H + 30);
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // 3. INVOICE METADATA BOX — left half, 4-row table (image exact)
-  // ════════════════════════════════════════════════════════════════════════════
-  const metaY   = HEADER_H + 6;
-  const metaW   = CW / 2;      // left half
-  const metaH   = 32;
-  const rowH    = metaH / 4;
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 3 — BILL TO (left) + INVOICE META (right), single bordered box
+  // ════════════════════════════════════════════════════════════════════════
+  const BOX_Y  = TOP_H + HDR_H + 5;
+  const BOX_H  = 50;
+  const HALF_W = CW / 2;
 
+  // outer border + vertical divider
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+  doc.rect(ML, BOX_Y, CW, BOX_H, "D");
+  doc.line(ML + HALF_W, BOX_Y, ML + HALF_W, BOX_Y + BOX_H);
+
+  // LEFT — Bill To
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...TXT_GREY);
+  doc.text("Bill To", ML + 4, BOX_Y + 8);
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(...TXT_DARK);
+  doc.text(invoice.customer, ML + 4, BOX_Y + 18);
+
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(80, 90, 95);
+  const addrParts = [company.address, company.city, company.country].filter(Boolean);
+  const addrLines = doc.splitTextToSize(addrParts.join(", "), HALF_W - 10);
+  addrLines.slice(0, 3).forEach((line: string, i: number) => {
+    doc.text(line, ML + 4, BOX_Y + 27 + i * 6);
+  });
+
+  // RIGHT — Invoice meta (label + bold value, 4 rows)
   const metaRows: [string, string][] = [
     ["Invoice#",     invoice.id],
     ["Invoice Date", invoice.date],
     ["Terms",        "Due on Receipt"],
     ["Due Date",     invoice.dueDate],
   ];
-
-  // Outer border for left meta box
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.35);
-  doc.setFillColor(255, 255, 255);
-  doc.rect(ML, metaY, metaW, metaH, "FD");
-
-  // Draw each row
+  const RX_LBL = ML + HALF_W + 4;
+  const RX_VAL = ML + CW - 4;
+  const META_RH = BOX_H / metaRows.length;
   metaRows.forEach(([label, val], i) => {
-    const ry = metaY + i * rowH;
-    // row divider
-    if (i > 0) {
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2);
-      doc.line(ML, ry, ML + metaW, ry);
-    }
-    const textY = ry + rowH * 0.65;
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...TEXT_MID);
-    doc.text(label, ML + 3, textY);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...TEXT_DARK);
-    doc.text(val, ML + metaW - 3, textY, { align: "right" });
+    const ty = BOX_Y + i * META_RH + META_RH * 0.65;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...TXT_GREY);
+    doc.text(label, RX_LBL, ty);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...TXT_DARK);
+    doc.text(val, RX_VAL, ty, { align: "right" });
   });
 
-  // Right half: empty bordered box (matches image — blank right panel)
-  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.35);
-  doc.setFillColor(255, 255, 255);
-  doc.rect(ML + metaW, metaY, metaW, metaH, "FD");
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 4 — LINE ITEMS TABLE
+  // Columns: # | Item & Description | Qty | Rate | Amount
+  // ════════════════════════════════════════════════════════════════════════
+  const TBL_Y   = BOX_Y + BOX_H + 5;
+  const TBL_HDR = 9;
+  const TBL_ROW = 18;  // tall rows to allow item name + sub-description
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // 4. BILL TO / SHIP TO — two equal columns, navy header (image exact)
-  // ════════════════════════════════════════════════════════════════════════════
-  const billY    = metaY + metaH + 4;
-  const colW     = CW / 2;
-  const billHdrH = 8;
-  const billBodyH= 22;
+  const realItems = lineItems ? lineItems.filter(l => l.product && l.unitPrice > 0) : [];
+  const MIN_ROWS  = Math.max(realItems.length || 1, 6); // at least 6 rows
 
-  // Bill To — left column header (navy)
-  doc.setFillColor(...NAVY_BLUE);
-  doc.rect(ML, billY, colW, billHdrH, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
-  doc.text("Bill To", ML + 5, billY + 5.8);
+  // Column widths (must sum to CW = 182)
+  const C_NUM = 12;
+  const C_QTY = 24;
+  const C_RAT = 36;
+  const C_AMT = 36;
+  const C_DSC = CW - C_NUM - C_QTY - C_RAT - C_AMT; // ~74
 
-  // Ship To — right column header (navy)
-  doc.setFillColor(...NAVY_BLUE);
-  doc.rect(ML + colW, billY, colW, billHdrH, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
-  doc.text("Ship To", ML + colW + 5, billY + 5.8);
+  const X_NUM = ML;
+  const X_DSC = X_NUM + C_NUM;
+  const X_QTY = X_DSC + C_DSC;
+  const X_RAT = X_QTY + C_QTY;
+  const X_AMT = X_RAT + C_RAT;
 
-  // Bill To content box
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.35);
-  doc.rect(ML, billY + billHdrH, colW, billBodyH, "FD");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(...TEXT_DARK);
-  doc.text(invoice.customer, ML + 5, billY + billHdrH + 8);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...TEXT_MID);
-  if (company.address) {
-    const addrLines = doc.splitTextToSize(company.address, colW - 10);
-    doc.text(addrLines.slice(0, 2), ML + 5, billY + billHdrH + 15);
-  }
+  // Header row (navy)
+  doc.setFillColor(...NAVY);
+  doc.rect(ML, TBL_Y, CW, TBL_HDR, "F");
+  const H_TY = TBL_Y + TBL_HDR * 0.72;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(255, 255, 255);
+  doc.text("#",                  X_NUM + C_NUM / 2,  H_TY, { align: "center" });
+  doc.text("Item & Description", X_DSC + 3,          H_TY);
+  doc.text("Qty",                X_QTY + C_QTY / 2,  H_TY, { align: "center" });
+  doc.text("Rate",               X_RAT + C_RAT - 3,  H_TY, { align: "right" });
+  doc.text("Amount",             X_AMT + C_AMT - 3,  H_TY, { align: "right" });
 
-  // Ship To content box
-  doc.setFillColor(255, 255, 255);
-  doc.rect(ML + colW, billY + billHdrH, colW, billBodyH, "FD");
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...TEXT_MID);
-  doc.text(invoice.customer, ML + colW + 5, billY + billHdrH + 8);
-  if (company.address) {
-    const addrLines = doc.splitTextToSize(company.address, colW - 10);
-    doc.text(addrLines.slice(0, 2), ML + colW + 5, billY + billHdrH + 15);
-  }
+  // header vertical dividers (white)
+  doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.2);
+  [X_DSC, X_QTY, X_RAT, X_AMT].forEach(x => doc.line(x, TBL_Y, x, TBL_Y + TBL_HDR));
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // 5. LINE ITEMS TABLE — S.No | Description | Qty | Rate | Amount (navy header)
-  // ════════════════════════════════════════════════════════════════════════════
-  const tableStartY = billY + billHdrH + billBodyH + 4;
-
-  const subtotal    = lineItems && lineItems.filter(l => l.product && l.unitPrice > 0).length > 0
-    ? lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0)
+  // Totals calc
+  const subtotal  = realItems.length > 0
+    ? realItems.reduce((s, l) => s + l.qty * l.unitPrice, 0)
     : invoice.amount;
-  const pct         = discountPct ?? invoice.discountPct ?? 0;
-  const discountAmt = Math.round(subtotal * pct / 100);
-  const totalDue    = subtotal - discountAmt;
+  const pct       = discountPct ?? invoice.discountPct ?? 0;
+  const discAmt   = Math.round(subtotal * pct / 100);
+  const totalDue  = subtotal - discAmt;
 
-  const hasRealItems = lineItems && lineItems.filter(l => l.product && l.unitPrice > 0).length > 0;
+  // Body rows
+  for (let r = 0; r < MIN_ROWS; r++) {
+    const ry   = TBL_Y + TBL_HDR + r * TBL_ROW;
+    const item = realItems[r];
 
-  const tableBody = hasRealItems
-    ? lineItems!.filter(l => l.product && l.unitPrice > 0).map((item, i) => [
-        String(i + 1),
-        item.product,
-        String(item.qty),
-        item.unitPrice.toLocaleString(),
-        (item.qty * item.unitPrice).toLocaleString(),
-      ])
-    : [["1", "Invoice Amount", "1", invoice.amount.toLocaleString(), invoice.amount.toLocaleString()]];
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
+    doc.rect(ML, ry, CW, TBL_ROW, "FD");
+    [X_DSC, X_QTY, X_RAT, X_AMT].forEach(x => doc.line(x, ry, x, ry + TBL_ROW));
 
-  autoTable(doc, {
-    startY:   tableStartY,
-    head:     [["S. No", "Description", "Qty", "Rate", "Amount"]],
-    body:     tableBody,
-    headStyles: {
-      fillColor:   NAVY_BLUE,
-      textColor:   [255, 255, 255],
-      fontStyle:   "bold",
-      fontSize:    9,
-      halign:      "center",
-      cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
-    },
-    styles: {
-      fontSize:    9,
-      cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
-      lineColor:   [180, 180, 180],
-      lineWidth:   0.3,
-      textColor:   TEXT_DARK,
-      fillColor:   [255, 255, 255],
-    },
-    alternateRowStyles: { fillColor: [255, 255, 255] },
-    margin:     { left: ML, right: MR, bottom: 70 },
-    columnStyles: {
-      0: { halign: "center", cellWidth: 18, fontStyle: "bold" },
-      1: { cellWidth: "auto", halign: "left" },
-      2: { halign: "center", cellWidth: 22 },
-      3: { halign: "right",  cellWidth: 32 },
-      4: { halign: "right",  cellWidth: 32, fontStyle: "bold" },
-    },
-    // Ensure minimum rows so the table looks substantial (like the image)
-    didDrawPage: () => { /* no-op */ },
-  });
+    if (item) {
+      // row number
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...TXT_DARK);
+      doc.text(String(r + 1), X_NUM + C_NUM / 2, ry + TBL_ROW * 0.55, { align: "center" });
+      // item name (bold, upper part of cell)
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+      doc.text(doc.splitTextToSize(item.product, C_DSC - 6)[0], X_DSC + 3, ry + TBL_ROW * 0.38);
+      // qty, rate, amount (normal, middle of cell)
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      doc.text(`${item.qty}.00`,                                X_QTY + C_QTY - 3, ry + TBL_ROW * 0.55, { align: "right" });
+      doc.text(`${curr} ${item.unitPrice.toLocaleString()}`,    X_RAT + C_RAT - 3, ry + TBL_ROW * 0.55, { align: "right" });
+      doc.text(`${(item.qty * item.unitPrice).toLocaleString()}`, X_AMT + C_AMT - 3, ry + TBL_ROW * 0.55, { align: "right" });
+    } else if (r === 0 && realItems.length === 0) {
+      // fallback single amount row
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...TXT_DARK);
+      doc.text("1", X_NUM + C_NUM / 2, ry + TBL_ROW * 0.55, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.text("Invoice Amount", X_DSC + 3, ry + TBL_ROW * 0.38);
+      doc.setFont("helvetica", "normal");
+      doc.text("1.00",                                         X_QTY + C_QTY - 3, ry + TBL_ROW * 0.55, { align: "right" });
+      doc.text(`${curr} ${invoice.amount.toLocaleString()}`,   X_RAT + C_RAT - 3, ry + TBL_ROW * 0.55, { align: "right" });
+      doc.text(`${invoice.amount.toLocaleString()}`,           X_AMT + C_AMT - 3, ry + TBL_ROW * 0.55, { align: "right" });
+    }
+  }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const afterTable = (doc as any).lastAutoTable?.finalY ?? tableStartY + 55;
+  // Sub Total row
+  const SUB_H = 10;
+  const SUB_Y = TBL_Y + TBL_HDR + MIN_ROWS * TBL_ROW;
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
+  doc.rect(ML, SUB_Y, CW, SUB_H, "FD");
+  doc.line(X_AMT, SUB_Y, X_AMT, SUB_Y + SUB_H);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...TXT_DARK);
+  doc.text("Sub Total",                           X_RAT + C_RAT - 3, SUB_Y + SUB_H * 0.68, { align: "right" });
+  doc.text(`${curr} ${subtotal.toLocaleString()}`, X_AMT + C_AMT - 3, SUB_Y + SUB_H * 0.68, { align: "right" });
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // 6. TOTALS BLOCK — right side: Sub Total / DIS % / Total / Balance Due
-  //    (image: white background box with bold labels, matching the sample)
-  // ════════════════════════════════════════════════════════════════════════════
-  const totalsBoxW  = 82;
-  const totalsBoxX  = W - MR - totalsBoxW;
-  const totalsRowH  = 11;
-  let ty            = afterTable + 2;
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 5 — TOTALS BOX (light blue background, right-aligned)
+  // ════════════════════════════════════════════════════════════════════════
+  const TOT_Y   = SUB_Y + SUB_H;
+  const TOT_W   = C_QTY + C_RAT + C_AMT; // right three columns
+  const TOT_X   = X_QTY;
+  const TOT_RH  = 13;
 
-  const totalRows: { label: string; value: string; bold?: boolean; dark?: boolean }[] = [
-    { label: "Sub Total",    value: `${curr} ${subtotal.toLocaleString()}` },
-    { label: `DIS %  ${pct > 0 ? pct.toFixed(1) + "%" : ""}`, value: pct > 0 ? `- ${curr} ${discountAmt.toLocaleString()}` : "" },
-    { label: "Total",        value: `${curr} ${totalDue.toLocaleString()}`, bold: true },
-    { label: "Balance Due",  value: `${curr} ${totalDue.toLocaleString()}`, bold: true, dark: true },
+  const totRows: [string, string, boolean][] = [
+    ["DIS %",       pct > 0 ? `${pct.toFixed(2)}%` : "",          false],
+    ["Total",       `${curr} ${totalDue.toLocaleString()}`,        true ],
+    ["Balance Due", `${curr} ${totalDue.toLocaleString()}`,        true ],
   ];
 
-  totalRows.forEach((row) => {
-    // background
-    if (row.dark) {
-      doc.setFillColor(230, 230, 230);
-    } else {
-      doc.setFillColor(255, 255, 255);
-    }
-    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
-    doc.rect(totalsBoxX, ty, totalsBoxW, totalsRowH, "FD");
-
-    const textY = ty + totalsRowH * 0.72;
-    doc.setFont("helvetica", row.bold ? "bold" : "normal");
-    doc.setFontSize(row.bold ? 9.5 : 9);
-    doc.setTextColor(...TEXT_DARK);
-    doc.text(row.label, totalsBoxX + 5, textY);
-    if (row.value) {
+  totRows.forEach(([label, val, bold], i) => {
+    const ry = TOT_Y + i * TOT_RH;
+    doc.setFillColor(...BLUE_BG);
+    doc.setDrawColor(160, 175, 220); doc.setLineWidth(0.2);
+    doc.rect(TOT_X, ry, TOT_W, TOT_RH, "FD");
+    const tY = ry + TOT_RH * 0.65;
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(bold ? 10 : 9);
+    doc.setTextColor(...TXT_DARK);
+    doc.text(label, TOT_X + 4, tY);
+    if (val) {
       doc.setFont("helvetica", "bold");
-      doc.text(row.value, totalsBoxX + totalsBoxW - 5, textY, { align: "right" });
+      doc.text(val, TOT_X + TOT_W - 4, tY, { align: "right" });
     }
-    ty += totalsRowH;
   });
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // 7. SIGNATURE | STAMP — two lines at bottom (matching image exactly)
-  // ════════════════════════════════════════════════════════════════════════════
-  const sigAreaY   = ty + 14;
-  const sigLineW   = 52;
-  const sigLeftX   = ML;
-  const sigRightX  = W - MR - sigLineW;
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 6 — SIGNATURE / STAMP
+  // ════════════════════════════════════════════════════════════════════════
+  const SIG_Y = TOT_Y + totRows.length * TOT_RH + 24;
+  const SIG_W = 55;
 
-  doc.setDrawColor(...TEXT_DARK); doc.setLineWidth(0.5);
+  doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.7);
+  doc.line(ML, SIG_Y, ML + SIG_W, SIG_Y);
+  doc.line(W - MR - SIG_W, SIG_Y, W - MR, SIG_Y);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...TXT_DARK);
+  doc.text("SIGNATURE", ML + SIG_W / 2,       SIG_Y + 6, { align: "center" });
+  doc.text("STAMP",     W - MR - SIG_W / 2,   SIG_Y + 6, { align: "center" });
 
-  // Signature line (left)
-  doc.line(sigLeftX, sigAreaY, sigLeftX + sigLineW, sigAreaY);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...TEXT_DARK);
-  doc.text("Signature", sigLeftX + sigLineW / 2, sigAreaY + 5, { align: "center" });
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 7 — FOOTER: dark green bar with phone | email | website
+  // ════════════════════════════════════════════════════════════════════════
+  const FTR_H = 16;
+  const FTR_Y = H - FTR_H;
+  doc.setFillColor(...GRN);
+  doc.rect(0, FTR_Y, W, FTR_H, "F");
 
-  // Stamp line (right)
-  doc.line(sigRightX, sigAreaY, sigRightX + sigLineW, sigAreaY);
-  doc.text("Stamp", sigRightX + sigLineW / 2, sigAreaY + 5, { align: "center" });
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // 8. FOOTER — dark green bar: phone | email | website (matching image)
-  // ════════════════════════════════════════════════════════════════════════════
-  const ftrH = 16;
-  const ftrY = H - ftrH;
-
-  doc.setFillColor(...GREEN_DARK);
-  doc.rect(0, ftrY, W, ftrH, "F");
-
-  const phone   = company.phone   || "+92 321 9221901";
-  const email   = company.email   || "info@biozentra.pk";
-  const website = "www.biozentra.pk";
-
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(255, 255, 255);
-
-  // Three items evenly distributed — phone | email | website
-  const ftrTextY = ftrY + ftrH * 0.6;
-  doc.text(`\u260E  ${phone}`,   W * 0.18, ftrTextY, { align: "center" });
-  doc.text(`\u2709  ${email}`,   W * 0.50, ftrTextY, { align: "center" });
-  doc.text(`\uD83C\uDF10  ${website}`, W * 0.80, ftrTextY, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
+  const FY = FTR_Y + FTR_H * 0.60;
+  doc.text(`\u260E  ${phone}`,         W * 0.22, FY, { align: "center" });
+  doc.text(`\u2709  ${email}`,         W * 0.52, FY, { align: "center" });
+  doc.text(`\u2295  www.biozentra.pk`, W * 0.80, FY, { align: "center" });
 
   doc.save(`${invoice.id}.pdf`);
 };
