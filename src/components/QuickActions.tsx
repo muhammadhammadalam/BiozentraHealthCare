@@ -242,7 +242,7 @@ export function QuickActions() {
                 <div className="grid gap-2">
                   <Label>Stock</Label>
                   <Input
-                    type="number"
+                    type="text" inputMode="numeric"
                     value={productForm.stock}
                     onChange={(e) =>
                       setProductForm({ ...productForm, stock: Number(e.target.value) })
@@ -253,7 +253,7 @@ export function QuickActions() {
               <div className="grid gap-2">
                 <Label>Price (Rs.)</Label>
                 <Input
-                  type="number"
+                  type="text" inputMode="numeric"
                   value={productForm.price}
                   onChange={(e) =>
                     setProductForm({ ...productForm, price: Number(e.target.value) })
@@ -289,7 +289,7 @@ export function QuickActions() {
                 <div className="grid gap-2">
                   <Label>Items</Label>
                   <Input
-                    type="number"
+                    type="text" inputMode="numeric"
                     value={orderForm.items}
                     onChange={(e) =>
                       setOrderForm({ ...orderForm, items: Number(e.target.value) })
@@ -299,7 +299,7 @@ export function QuickActions() {
                 <div className="grid gap-2">
                   <Label>Total (Rs.)</Label>
                   <Input
-                    type="number"
+                    type="text" inputMode="numeric"
                     value={orderForm.total}
                     onChange={(e) =>
                       setOrderForm({ ...orderForm, total: Number(e.target.value) })
@@ -381,7 +381,7 @@ export function QuickActions() {
               <div className="grid gap-2">
                 <Label>Amount (Rs.)</Label>
                 <Input
-                  type="number"
+                  type="text" inputMode="numeric"
                   value={invoiceForm.amount}
                   onChange={(e) =>
                     setInvoiceForm({ ...invoiceForm, amount: Number(e.target.value) })

@@ -359,7 +359,7 @@ const Stock = () => {
                 )}
               </Label>
               <Input
-                type="number"
+                type="text" inputMode="numeric"
                 min="0"
                 max={formData.maxStock > 0 ? formData.maxStock : undefined}
                 value={formData.quantity}
@@ -378,7 +378,7 @@ const Stock = () => {
             <div className="grid gap-2">
               <Label>Max Stock *</Label>
               <Input
-                type="number"
+                type="text" inputMode="numeric"
                 min="1"
                 value={formData.maxStock}
                 onChange={(e) => {

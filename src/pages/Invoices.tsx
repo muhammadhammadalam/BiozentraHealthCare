@@ -431,7 +431,7 @@ const Invoices = () => {
               <div className="grid gap-2">
                 <Label>Discount (%)</Label>
                 <Input
-                  type="number"
+                  type="text" inputMode="numeric"
                   min="0"
                   max="100"
                   value={discountPct}
@@ -473,7 +473,7 @@ const Invoices = () => {
                         </td>
                         <td className="px-2 py-1">
                           <Input
-                            type="number"
+                            type="text" inputMode="numeric"
                             min="1"
                             value={li.qty}
                             onChange={(e) =>
@@ -484,7 +484,7 @@ const Invoices = () => {
                         </td>
                         <td className="px-2 py-1">
                           <Input
-                            type="number"
+                            type="text" inputMode="numeric"
                             min="0"
                             value={li.unitPrice}
                             onChange={(e) =>
@@ -539,7 +539,7 @@ const Invoices = () => {
               <div className="grid gap-2">
                 <Label>Amount (Rs.) — or fill line items above *</Label>
                 <Input
-                  type="number"
+                  type="text" inputMode="numeric"
                   min="0"
                   value={formData.amount}
                   onChange={(e) =>

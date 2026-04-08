@@ -257,7 +257,7 @@ const Suppliers = () => {
             <div className="grid gap-2">
               <Label>Products Supplied</Label>
               <Input
-                type="number"
+                type="text" inputMode="numeric"
                 min="0"
                 value={formData.products}
                 onChange={(e) =>

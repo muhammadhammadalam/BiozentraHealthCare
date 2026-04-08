@@ -284,7 +284,7 @@ const Products = () => {
             <div className="space-y-1.5">
               <Label>Cost Price (Rs.) — what you pay</Label>
               <Input
-                type="number" min="0" placeholder="0"
+                type="text" inputMode="numeric" placeholder="0"
                 value={formData.costPrice === 0 ? "" : formData.costPrice.toString()}
                 onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })} />
             </div>
