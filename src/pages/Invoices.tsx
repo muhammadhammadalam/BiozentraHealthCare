@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -191,11 +191,11 @@ const Invoices = () => {
       return;
     }
     const hasLineItems = lineItems.some((li) => li.product && li.unitPrice > 0);
-    const finalAmount = hasLineItems ? Math.round(afterDiscount) : formData.amount;
-    if (finalAmount <= 0) {
-      toast.error("Amount must be greater than zero");
+    if (!hasLineItems) {
+      toast.error("Please add at least one line item with a product and price");
       return;
     }
+    const finalAmount = Math.round(afterDiscount);
     try {
       const payload = { ...formData, amount: finalAmount };
       if (editingId) {
@@ -221,6 +221,18 @@ const Invoices = () => {
   };
 
   const customerNames = customers.map((c) => c.name);
+
+  // Auto-mark Pending invoices as Overdue once their due date has passed
+  const overdueChecked = useRef(false);
+  useEffect(() => {
+    if (invoices.length > 0 && !overdueChecked.current) {
+      overdueChecked.current = true;
+      const today = new Date().toISOString().split("T")[0];
+      invoices
+        .filter((inv) => inv.status === "Pending" && inv.dueDate < today)
+        .forEach((inv) => updateInvoice(inv.id, { status: "Overdue" }));
+    }
+  }, [invoices]);
 
   return (
     <DashboardLayout>
@@ -361,14 +373,14 @@ const Invoices = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Invoice" : "Create New Invoice"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {/* Customer + Status + Dates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 grid gap-2">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 grid gap-2">
                 <Label>Customer *</Label>
                 {customerNames.length > 0 ? (
                   <Select
@@ -449,7 +461,7 @@ const Invoices = () => {
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
                 </Button>
               </div>
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
@@ -534,21 +546,6 @@ const Invoices = () => {
               </div>
             </div>
 
-            {/* Manual amount fallback if no line items */}
-            {!lineItems.some((li) => li.product && li.unitPrice > 0) && (
-              <div className="grid gap-2">
-                <Label>Amount (Rs.) — or fill line items above *</Label>
-                <Input
-                  type="text" inputMode="numeric"
-                  min="0"
-                  value={formData.amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })
-                  }
-                  placeholder="Enter total amount"
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDialog}>

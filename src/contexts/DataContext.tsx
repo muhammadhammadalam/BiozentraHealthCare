@@ -37,6 +37,7 @@ export interface Customer {
   contact: string;
   phone: string;
   location: string;
+  area: string;
   orders: number;
   totalSpent: number;
 }
@@ -121,6 +122,7 @@ function mapCustomer(row: any): Customer {
     contact: row.contact || "",
     phone: row.phone || "",
     location: row.location || row.city || "",
+    area: row.area || "",
     orders: Number(row.orders) || 0,
     totalSpent: Number(row.total_spent) || 0,
   };
@@ -329,6 +331,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         phone: customer.phone,
         location: customer.location,
         city: customer.location,
+        area: customer.area || "",
         orders: customer.orders || 0,
         total_spent: customer.totalSpent || 0,
       }]).select().single();
@@ -343,11 +346,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateCustomer = async (id: number, customer: Partial<Customer>) => {
-    const { totalSpent, location, ...rest } = customer;
+    const { totalSpent, location, area, ...rest } = customer;
     const dbUpdate = {
       ...rest,
       ...(totalSpent !== undefined ? { total_spent: totalSpent } : {}),
       ...(location !== undefined ? { location, city: location } : {}),
+      ...(area !== undefined ? { area } : {}),
     };
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from("customers").update(dbUpdate).eq("id", id);

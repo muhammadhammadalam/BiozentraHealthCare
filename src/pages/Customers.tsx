@@ -22,6 +22,7 @@ interface CustomerFormData {
   contact: string;
   phone: string;
   location: string;
+  area: string;
   orders: number;
   totalSpent: number;
 }
@@ -31,6 +32,7 @@ const emptyCustomer: CustomerFormData = {
   contact: "",
   phone: "",
   location: "",
+  area: "",
   orders: 0,
   totalSpent: 0,
 };
@@ -47,7 +49,8 @@ const Customers = () => {
     (customer) =>
       customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       customer.contact.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.location.toLowerCase().includes(searchQuery.toLowerCase())
+      customer.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (customer.area || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleOpenDialog = (customerId?: number) => {
@@ -60,6 +63,7 @@ const Customers = () => {
           contact: customer.contact,
           phone: customer.phone,
           location: customer.location,
+          area: customer.area || "",
           orders: customer.orders,
           totalSpent: customer.totalSpent,
         });
@@ -193,10 +197,12 @@ const Customers = () => {
                       <span>{customer.phone}</span>
                     </div>
                   )}
-                  {customer.location && (
+                  {(customer.location || customer.area) && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span>{customer.location}</span>
+                      <span>
+                        {[customer.area, customer.location].filter(Boolean).join(", ")}
+                      </span>
                     </div>
                   )}
                   <div className="flex justify-between pt-3 border-t">
@@ -257,6 +263,15 @@ const Customers = () => {
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 placeholder="e.g. Karachi, Lahore, Dubai"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="area">Area / District</Label>
+              <Input
+                id="area"
+                value={formData.area}
+                onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                placeholder="e.g. Gulshan, DHA, Johar Town"
               />
             </div>
           </div>

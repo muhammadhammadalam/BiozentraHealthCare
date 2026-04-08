@@ -85,7 +85,7 @@ export default function ProfitLoss() {
       .filter(i => i.status === "Paid" && i.date?.startsWith(yr))
       .forEach(i => {
         const key = i.date!.slice(0, 7);
-        if (map[key]) map[key].revenue += i.total ?? 0;
+        if (map[key]) map[key].revenue += i.amount ?? 0;
       });
 
     // COGS: costPrice × qty per line item in delivered orders
@@ -129,7 +129,7 @@ export default function ProfitLoss() {
   // ── Prior year comparison ─────────────────────────────────────────────────
   const priorYear = String(parseInt(selectedYear) - 1);
   const priorNet = useMemo(() => {
-    const rev = invoices.filter(i => i.status === "Paid" && i.date?.startsWith(priorYear)).reduce((s, i) => s + (i.total ?? 0), 0);
+    const rev = invoices.filter(i => i.status === "Paid" && i.date?.startsWith(priorYear)).reduce((s, i) => s + (i.amount ?? 0), 0);
     const cog = orders.filter(o => o.status === "Delivered" && o.date?.startsWith(priorYear)).reduce((s, o) => s + orderCOGS(o), 0);
     const opx = expenses.filter(e => e.date?.startsWith(priorYear)).reduce((s, e) => s + (e.amount ?? 0), 0);
     return rev - cog - opx;
