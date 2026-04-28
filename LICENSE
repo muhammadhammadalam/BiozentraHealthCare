@@ -1,21 +1,294 @@
-MIT License
+BIOZENTRA HEALTHCARE PROPRIETARY LICENSE
+Version 1.0 — Effective Date: March 17, 2026
 
-Copyright (c) 2026 Hammad Alam — BIOZENTRA Healthcare
+Copyright (c) 2026 Hammad Alam (BIOZENTRA Healthcare)
+All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PREAMBLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This License governs use of the Biozentra Healthcare software
+(the "Software"), including its source code, object code,
+documentation, and all associated files. This License is
+modeled on the Business Source License 1.1 (BUSL-1.1) used
+by HashiCorp, MariaDB, CockroachDB, and other leading
+software companies, and is extended with additional clauses
+specific to healthcare software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+By accessing, copying, modifying, or using the Software in
+any way, you ("Licensee") agree to be bound by this License.
+If you do not agree, you must immediately cease all use and
+delete all copies of the Software.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. GRANT OF LIMITED LICENSE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Subject to the terms and conditions of this License, the
+Licensor grants you a limited, non-exclusive, non-transferable,
+non-sublicensable, revocable license to:
+
+  (a) View and read the source code for personal educational
+      or evaluation purposes only;
+
+  (b) Run the Software locally for non-commercial, internal
+      testing or personal use only;
+
+  (c) Contribute bug fixes or improvements via official pull
+      requests subject to Licensor's review and acceptance,
+      provided that any accepted contributions become the
+      exclusive intellectual property of the Licensor.
+
+All rights not expressly granted herein are reserved by
+the Licensor.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. PROHIBITED USES — NO EXCEPTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You may NOT, under any circumstances, without prior written
+permission from the Licensor:
+
+  (a) COMMERCIAL USE: Use the Software, in whole or in part,
+      for any commercial purpose, including but not limited to
+      selling, licensing, or generating revenue from it.
+
+  (b) SAAS / MANAGED SERVICE: Offer the Software or any
+      derivative work as a hosted, managed, or Software-as-a-
+      Service (SaaS) product to any third party, whether paid
+      or free.
+
+  (c) COMPETING PRODUCTS: Use the Software to develop, train,
+      or operate any product or service that competes with
+      Biozentra Healthcare, including any healthcare analytics
+      platform, patient management system, or medical dashboard.
+
+  (d) REDISTRIBUTION: Distribute, sublicense, publish, sell,
+      or otherwise transfer the Software or any portion thereof
+      to any third party.
+
+  (e) REVERSE ENGINEERING: Decompile, disassemble, reverse
+      engineer, or otherwise attempt to derive the source code
+      from any compiled or obfuscated portion of the Software.
+
+  (f) DERIVATIVE WORKS: Modify, adapt, translate, or create
+      derivative works based on the Software without express
+      written authorization from the Licensor, and in no event
+      may such works be distributed or commercialized.
+
+  (g) REMOVAL OF NOTICES: Remove, alter, or obscure any
+      copyright, trademark, patent, or proprietary notices
+      embedded in or accompanying the Software.
+
+  (h) UNAUTHORIZED DEPLOYMENT: Deploy or host the Software on
+      any server, cloud infrastructure, or computing environment
+      for access by users other than the Licensee.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. HEALTHCARE-SPECIFIC PROVISIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  3.1 NOT A MEDICAL DEVICE. The Software is not an FDA-cleared
+  or CE-marked medical device. It is not intended to diagnose,
+  treat, cure, prevent, or mitigate any disease or condition.
+  Licensee must not use or represent the Software as a clinical
+  decision support tool, diagnostic tool, or medical device.
+
+  3.2 HIPAA / HITECH COMPLIANCE. Licensee is solely and
+  exclusively responsible for ensuring all deployments and
+  uses of the Software comply with the Health Insurance
+  Portability and Accountability Act (HIPAA), the Health
+  Information Technology for Economic and Clinical Health
+  Act (HITECH), and all other applicable healthcare privacy
+  laws and regulations in Licensee's jurisdiction. The
+  Licensor makes no representation that the Software is
+  HIPAA-compliant.
+
+  3.3 PROTECTED HEALTH INFORMATION. Licensee shall not use
+  the Software to collect, store, transmit, or process any
+  Protected Health Information (PHI) as defined under HIPAA
+  without: (i) executing a Business Associate Agreement (BAA)
+  with the Licensor; (ii) implementing required technical,
+  administrative, and physical safeguards; and (iii) ensuring
+  encryption of PHI at rest and in transit using AES-256 or
+  equivalent standards.
+
+  3.4 NO PATIENT HARM. Licensee accepts full liability for any
+  patient harm, misdiagnosis, or adverse medical outcome arising
+  from reliance on or misuse of the Software. The Licensor
+  shall bear no liability whatsoever for clinical outcomes.
+
+  3.5 DATA RESIDENCY. Licensee is responsible for ensuring
+  that any patient or health data processed via the Software
+  remains within legally permissible geographic boundaries
+  under applicable data residency laws.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. INTELLECTUAL PROPERTY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  4.1 OWNERSHIP. The Software, including all source code,
+  algorithms, UI/UX designs, database schemas, API designs,
+  documentation, and all intellectual property embodied
+  therein, is and shall remain the exclusive property of
+  Hammad Alam (BIOZENTRA Healthcare). No title or ownership
+  is transferred to Licensee under this License.
+
+  4.2 TRADEMARKS. "Biozentra," "BIOZENTRA Healthcare," and
+  associated logos are trademarks of Hammad Alam. Licensee
+  may not use these marks for any purpose without prior
+  written consent.
+
+  4.3 FEEDBACK. Any feedback, suggestions, or improvements
+  provided by Licensee regarding the Software shall be deemed
+  the exclusive property of the Licensor, and Licensee hereby
+  irrevocably assigns all rights, title, and interest in such
+  feedback to the Licensor without compensation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. DISCLAIMER OF WARRANTIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT
+WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. TO THE FULLEST
+EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR EXPRESSLY
+DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO:
+
+  - FITNESS FOR A PARTICULAR PURPOSE
+  - MERCHANTABILITY
+  - NON-INFRINGEMENT
+  - ACCURACY, COMPLETENESS, OR RELIABILITY OF DATA
+  - UNINTERRUPTED OR ERROR-FREE OPERATION
+  - SECURITY OR FREEDOM FROM VULNERABILITIES
+  - COMPLIANCE WITH HEALTHCARE REGULATIONS
+
+LICENSEE USES THE SOFTWARE ENTIRELY AT THEIR OWN RISK.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. LIMITATION OF LIABILITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+THE LICENSOR, ITS AFFILIATES, OFFICERS, EMPLOYEES, OR
+CONTRIBUTORS BE LIABLE FOR ANY:
+
+  - DIRECT, INDIRECT, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL
+    DAMAGES;
+  - LOSS OF PROFITS, REVENUE, DATA, BUSINESS, OR GOODWILL;
+  - PERSONAL INJURY OR PATIENT HARM;
+  - REGULATORY FINES OR PENALTIES;
+  - COSTS OF SUBSTITUTE GOODS OR SERVICES;
+
+ARISING OUT OF OR RELATED TO THE USE OF OR INABILITY TO USE
+THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES. THE LICENSOR'S TOTAL LIABILITY SHALL NOT EXCEED
+USD $0 (ZERO DOLLARS), AS THIS SOFTWARE IS PROVIDED FREE
+OF CHARGE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. INDEMNIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Licensee agrees to indemnify, defend, and hold harmless the
+Licensor and its contributors from and against any and all
+claims, damages, losses, liabilities, costs, and expenses
+(including reasonable attorneys' fees) arising from:
+
+  (a) Licensee's use or misuse of the Software;
+  (b) Licensee's violation of this License;
+  (c) Licensee's violation of any applicable law or regulation,
+      including healthcare privacy laws;
+  (d) Any third-party claim related to Licensee's deployment
+      or use of the Software.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. TERMINATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  8.1 This License terminates automatically and immediately
+  upon any breach of its terms by Licensee.
+
+  8.2 Upon termination, Licensee must immediately: (i) cease
+  all use of the Software; (ii) destroy all copies, including
+  backups and derivatives; and (iii) certify in writing to
+  the Licensor that such destruction has been completed.
+
+  8.3 Sections 2, 3, 4, 5, 6, 7, 9, and 10 survive
+  termination of this License.
+
+  8.4 The Licensor may terminate this License at any time,
+  for any reason, with or without notice.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. CHANGE DATE PROVISION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On the Change Date — March 17, 2030 (four years from the
+Effective Date) — the Licensor may, at their sole discretion,
+re-license the Software under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0) or another
+license of the Licensor's choosing. This provision does not
+create any obligation on the part of the Licensor to do so.
+Until such time, this License remains in full effect.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. GOVERNING LAW AND DISPUTE RESOLUTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  10.1 This License shall be governed by and construed in
+  accordance with the laws of the Islamic Republic of Pakistan,
+  without regard to its conflict-of-law provisions.
+
+  10.2 Any dispute arising out of or related to this License
+  shall first be subject to good-faith negotiation between
+  the parties for a period of 30 days.
+
+  10.3 If negotiation fails, disputes shall be resolved by
+  binding arbitration in Karachi, Pakistan, under the rules
+  of the relevant arbitration authority. Each party shall bear
+  its own costs.
+
+  10.4 Notwithstanding the above, the Licensor reserves the
+  right to seek injunctive or other equitable relief in any
+  court of competent jurisdiction to protect its intellectual
+  property rights.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. GENERAL PROVISIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  11.1 ENTIRE AGREEMENT. This License constitutes the entire
+  agreement between the parties with respect to the Software
+  and supersedes all prior agreements, representations, or
+  understandings.
+
+  11.2 SEVERABILITY. If any provision of this License is held
+  invalid or unenforceable, the remaining provisions shall
+  continue in full force and effect.
+
+  11.3 NO WAIVER. Failure by the Licensor to enforce any
+  provision of this License shall not constitute a waiver of
+  future enforcement of that provision.
+
+  11.4 ASSIGNMENT. Licensee may not assign or transfer any
+  rights or obligations under this License without the prior
+  written consent of the Licensor. The Licensor may assign
+  this License freely.
+
+  11.5 EXPORT COMPLIANCE. Licensee is responsible for
+  compliance with all applicable export control laws and
+  regulations.
+
+  11.6 NOTICES. All notices under this License must be in
+  writing and sent to: alammuhammadhammad@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For licensing inquiries or commercial use permissions:
+Contact: Hammad Alam — alammuhammadhammad@gmail.com
+Project:  https://github.com/muhammadhammadalam/BiozentraHealthCare
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF LICENSE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
